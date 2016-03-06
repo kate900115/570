@@ -18,7 +18,7 @@ const
 -- Types
 ----------------------------------------------------------------------
 type
-  Proc: scalarset(ProcCount);   -- unordered range of processors
+  Proc: scalarset(ProcCount);   -- unordered range of processors -- array type is ordered so we do not use array
   Value: scalarset(ValueCount); -- arbitrary values for tracking coherence
   Home: enum { HomeType };      -- need enumeration for IsMember calls
   Node: union { Home , Proc };
@@ -28,10 +28,10 @@ type
   MessageType: enum {  ReadReq,         -- request for data / exclusivity
                        ReadAck,         -- read ack (w/ data)
                                              
-								       WBReq,           -- writeback request (w/ data)
-								       WBAck,           -- writeback ack 
+					   WBReq,           -- writeback request (w/ data)
+					   WBAck,           -- writeback ack 
                            
-                       RecallReq 				-- Request & invalidate a valid copy
+                       RecallReq 		-- Request & invalidate a valid copy
                     };
 
   Message:
@@ -75,8 +75,8 @@ var
 -- Procedures
 ----------------------------------------------------------------------
 Procedure Send(mtype:MessageType;
-	       dst:Node;
-	       src:Node;
+	       dst:Node;    --destination node
+	       src:Node;	--sourse node
          vc:VCType;
          val:Value;
          );
