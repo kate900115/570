@@ -75,10 +75,10 @@ var
 -- Procedures
 ----------------------------------------------------------------------
 Procedure Send(mtype:MessageType;
-	       dst:Node;    --destination node
-	       src:Node;	--sourse node
-         vc:VCType;
-         val:Value;
+	           dst:Node;    --destination node
+	           src:Node;	--sourse node
+               vc:VCType;
+               val:Value;
          );
 var msg:Message;
 Begin
@@ -154,7 +154,8 @@ Begin
   msg_processed := true;
 
   switch HomeNode.state
-  case H_Invalid:
+  case H_Invalid:                      
+  --H_Invalid means that there is no other node who has the value.
     switch msg.mtype
 
     case ReadReq:
@@ -167,12 +168,18 @@ Begin
 
     endswitch;
 
-  case H_Valid:
+  case H_Valid:							
+  --H_Valid means that there is other node who has the value.
+  --That node should return the value to the requesting node.
     Assert (IsUndefined(HomeNode.owner) = false) 
        "HomeNode has no owner, but line is Valid";
 
     switch msg.mtype
     case ReadReq:
+    -- The home directory should send a request to the owner
+    -- and waiting for the owner to send back the value to the home directory
+    -- so the home node state is in transient state
+   
       HomeNode.state := HT_Pending;     
       Send(RecallReq, HomeNode.owner, HomeType, VC0, UNDEFINED);
       HomeNode.owner := msg.src; --remember who the new owner will be
@@ -193,12 +200,21 @@ Begin
     switch msg.mtype
    
     case WBReq:
+    
+    -- When the home directory is in the transient state, 
+    -- it means that it is waiting for the data from the owner
+    -- if it receive a WBReq, it means the data from the old owner send back date to the home node
+    -- So it will send this data to the requestor
+    
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
       HomeNode.state := H_Valid;
       HomeNode.val := msg.val;
       Send(ReadAck, HomeNode.owner, HomeType, VC1, HomeNode.val);
 
     case ReadReq:
+    
+    -- When there is another read request, it will put the read request into inbox
+    
     	msg_processed := false; -- stall message in InBox
 
     else
@@ -214,7 +230,7 @@ Begin
 --  put "Receiving "; put msg.mtype; put " on VC"; put msg.vc; 
 --  put " at proc "; put p; put "\n";
 
-  -- default to 'processing' message.  set to false otherwise
+   -- default to 'processing' message.  set to false otherwise
   msg_processed := true;
 
   alias ps:Procs[p].state do
