@@ -291,8 +291,6 @@ End;
 ----------------------------------------------------------------------
 
 -- Processor actions (affecting coherency)
--- This is the actions that processors generate
--- the procedure of ProcReceive(msg:Message; p:Proc) is activate only when a processor receive a message
 
 ruleset n:Proc Do
   alias p:Procs[n] Do
@@ -342,15 +340,16 @@ ruleset n:Node do
         HomeReceive(msg);
       else
         ProcReceive(msg, n);
-	  endif;
+			endif;
 
-	  if ! msg_processed
-	  then
-		-- The node refused the message, stick it in the InBox to block the VC.
-	  	box[msg.vc] := msg;
-	  endif;
+			if ! msg_processed
+			then
+				-- The node refused the message, stick it in the InBox to block the VC.
+	  		box[msg.vc] := msg;
+			endif;
 	  
-		MultiSetRemove(midx, chan);
+		  MultiSetRemove(midx, chan);
+	  
     endrule;
   
     endalias
@@ -358,23 +357,23 @@ ruleset n:Node do
     endalias;
   endchoose;  
 
--- Try to deliver a message from a blocked VC; perhaps the node can handle it now
+	-- Try to deliver a message from a blocked VC; perhaps the node can handle it now
 	ruleset vc:VCType do
-   		rule "receive-blocked-vc"
-		(! isundefined(InBox[n][vc].mtype))
-   		 ==>
-     	 if IsMember(n, Home)
-     	 then
-       	 HomeReceive(InBox[n][vc]);
-     	 else
-       	 ProcReceive(InBox[n][vc], n);
-	 	 endif;
+    rule "receive-blocked-vc"
+			(! isundefined(InBox[n][vc].mtype))
+    ==>
+      if IsMember(n, Home)
+      then
+        HomeReceive(InBox[n][vc]);
+      else
+        ProcReceive(InBox[n][vc], n);
+			endif;
 
-		 if msg_processed
-	  	 then
-	  		-- Message has been handled, forget it
-	  	 undefine InBox[n][vc];
-	  	endif;
+			if msg_processed
+			then
+				-- Message has been handled, forget it
+	  		undefine InBox[n][vc];
+			endif;
 	  
     endrule;
   endruleset;
@@ -406,7 +405,7 @@ endstartstate;
 
 ----------------------------------------------------------------------
 -- Invariants
-------------------------------------- ---------------------------------
+----------------------------------------------------------------------
 
 invariant "Invalid implies empty owner"
   HomeNode.state = H_Invalid
