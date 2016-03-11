@@ -1,5 +1,5 @@
 
--- two-state 4-hop VI protocol
+-- Three-state 3-hop MSI protocol
 
 ----------------------------------------------------------------------
 -- Constants
@@ -25,13 +25,20 @@ type
 
   VCType: VC0..NumVCs-1;
 
-  MessageType: enum {  ReadReq,         -- request for data / exclusivity
-                       ReadAck,         -- read ack (w/ data)
+  MessageType: enum {  GetS,            -- request for data
+                       GetM,            -- request for data, and will modified that data.
+                       
+                       Fwd_GetS,		-- the home node is not the owner, instead other Proc is the owner
+                       Fwd_GetM,
+                       
+                       Invidation,		
                                              
-					   WBReq,           -- writeback request (w/ data)
-					   WBAck,           -- writeback ack 
+					   PutS,            -- writeback the data in share state.
+					   PutM,            -- writeback the data in modified state.
                            
-                       RecallReq 		-- Request & invalidate a valid copy
+                       Get_Ack,
+                       Put_Ack,			-- respond from home node to indicate the value is successful writeback    
+                       Inv_Ack 		    -- respond from other proc to indicate the block is invalidated
                     };
 
   Message:
@@ -39,23 +46,26 @@ type
       mtype: MessageType;
       src: Node;
       -- do not need a destination for verification; the destination is indicated by which array entry in the Net the message is placed
+      
       vc: VCType;
       val: Value;
+      -- indicate the index of nodes in the sharer's state
+      
     End;
 
   HomeState:
     Record
-      state: enum { H_Valid, H_Invalid, 					--stable states
-      							HT_Pending }; 								--transient states during recall
+      state: enum { H_Invalid, H_Modified, H_Shared, 					--stable states
+      							HT_Pending }; 							--transient states during recall
       owner: Node;	
-      --sharers: multiset [ProcCount] of Node;    --No need for sharers in this protocol, but this is a good way to represent them
+      sharers: multiset [ProcCount] of Node;    						
       val: Value; 
     End;
 
   ProcState:
     Record
-      state: enum { P_Valid, P_Invalid,
-                  PT_Pending, PT_WritebackPending
+      state: enum { P_Valid, P_Invalid, 								--stable states
+                  IS_D, IM_AD, IM_A, SM_AD, MI_A, SI_A, II_A			--transient states
                   };
       val: Value;
     End;
@@ -66,10 +76,10 @@ type
 var
   HomeNode:  HomeState;
   Procs: array [Proc] of ProcState;
-  Net:   array [Node] of multiset [NetMax] of Message;  -- One multiset for each destination - messages are arbitrarily reordered by the multiset
-  InBox: array [Node] of array [VCType] of Message; -- If a message is not processed, it is placed in InBox, blocking that virtual channel
+  Net:   array [Node] of multiset [NetMax] of Message;  				-- One multiset for each destination - messages are arbitrarily reordered by the multiset
+  InBox: array [Node] of array [VCType] of Message; 					-- If a message is not processed, it is placed in InBox, blocking that virtual channel
   msg_processed: boolean;
-  LastWrite: Value; -- Used to confirm that writes are not lost; this variable would not exist in real hardware
+  LastWrite: Value; 													-- Used to confirm that writes are not lost; this variable would not exist in real hardware
 
 ----------------------------------------------------------------------
 -- Procedures
@@ -87,6 +97,7 @@ Begin
   msg.src   := src;
   msg.vc    := vc;
   msg.val   := val;
+  msg.sharelist := slist;
   MultiSetAdd(msg, Net[dst]);
 End;
 
@@ -100,8 +111,8 @@ Begin
   error "Unhandled state!";
 End;
 
-/*
--- These aren't needed for Valid/Invalid protocol, but this is a good way of writing these functions
+
+
 Procedure AddToSharersList(n:Node);
 Begin
   if MultiSetCount(i:HomeNode.sharers, HomeNode.sharers[i] = n) = 0
@@ -110,15 +121,21 @@ Begin
   endif;
 End;
 
+
+
 Function IsSharer(n:Node) : Boolean;
 Begin
   return MultiSetCount(i:HomeNode.sharers, HomeNode.sharers[i] = n) > 0
 End;
 
+
+
 Procedure RemoveFromSharersList(n:Node);
 Begin
   MultiSetRemovePred(i:HomeNode.sharers, HomeNode.sharers[i] = n);
 End;
+
+
 
 -- Sends a message to all sharers except rqst
 Procedure SendInvReqToSharers(rqst:Node);
@@ -134,7 +151,7 @@ Begin
     endif;
   endfor;
 End;
-*/
+
 
 
 Procedure HomeReceive(msg:Message);
@@ -147,7 +164,8 @@ Begin
   -- The line below is not needed in Valid/Invalid protocol.  However, the 
   -- compiler barfs if we put this inside a switch, so it is useful to
   -- pre-calculate the sharer count here
-  --cnt := MultiSetCount(i:HomeNode.sharers, true);
+  
+  cnt := MultiSetCount(i:HomeNode.sharers, true);
 
 
   -- default to 'processing' message.  set to false otherwise
@@ -158,38 +176,41 @@ Begin
   --H_Invalid means that there is no other node who has the value.
     switch msg.mtype
 
-    case ReadReq:
-      HomeNode.state := H_Valid;
+    case GetS:
+      HomeNode.state := H_Shared;
+      AddToSharersList(msg.src);
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      
+    case GetM:
+	  HomeNode.state := H_Modified;
       HomeNode.owner := msg.src;
-      Send(ReadAck, msg.src, HomeType, VC1, HomeNode.val);
-
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      SendInvReqToSharers(msg.src);
     else
       ErrorUnhandledMsg(msg, HomeType);
 
     endswitch;
 
-  case H_Valid:							
+  case H_Shared:							
   --H_Valid means that there is other node who has the value.
   --That node should return the value to the requesting node.
-    Assert (IsUndefined(HomeNode.owner) = false) 
+    Assert (cnt = 0) 
        "HomeNode has no owner, but line is Valid";
 
     switch msg.mtype
-    case ReadReq:
-    -- The home directory should send a request to the owner
-    -- and waiting for the owner to send back the value to the home directory
-    -- so the home node state is in transient state
-   
-      HomeNode.state := HT_Pending;     
-      Send(RecallReq, HomeNode.owner, HomeType, VC0, UNDEFINED);
-      HomeNode.owner := msg.src; --remember who the new owner will be
+    case GetS:     
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      AddToSharersList(msg.src);
             
-    case WBReq:
-    	assert (msg.src = HomeNode.owner) "Writeback from non-owner";
-      HomeNode.state := H_Invalid;
-      HomeNode.val := msg.val;
-      Send(WBAck, msg.src, HomeType, VC1, UNDEFINED);
+    case GetM:
+      assert (msg.src = HomeNode.owner) "Writeback from non-owner";
+      HomeNode.state := HT_Pending;
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      Send(Invalidation, msg.src, HomeType, VC1, UNDEFINED);
       undefine HomeNode.owner
+      
+    case PutM:
+      assert (msg.src = HomeNode.owner) "Writeback from non-owner";
 
     else
       ErrorUnhandledMsg(msg, HomeType);
