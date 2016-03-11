@@ -24,6 +24,8 @@ type
   Node: union { Home , Proc };
 
   VCType: VC0..NumVCs-1;
+  
+  ShareNodes: multiset [ProcCount] of Node; 
 
   MessageType: enum {  GetS,            -- request for data
                        GetM,            -- request for data, and will modified that data.
@@ -50,6 +52,7 @@ type
       vc: VCType;
       val: Value;
       -- indicate the index of nodes in the sharer's state
+      sharelist: ShareNodes;
       
     End;
 
@@ -89,6 +92,7 @@ Procedure Send(mtype:MessageType;
 	           src:Node;	--sourse node
                vc:VCType;
                val:Value;
+               slist: ShareNodes
          );
 var msg:Message;
 Begin
@@ -146,6 +150,7 @@ Begin
     then
       if n != rqst
       then 
+      	Send(Invalidation, n, rqst, VC0, UNDEFINED,UNDEFINED);
         -- Send invalidation message here 
       endif;
     endif;
@@ -179,13 +184,13 @@ Begin
     case GetS:
       HomeNode.state := H_Shared;
       AddToSharersList(msg.src);
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
       
     case GetM:
 	  HomeNode.state := H_Modified;
       HomeNode.owner := msg.src;
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
-      SendInvReqToSharers(msg.src);
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
+      
     else
       ErrorUnhandledMsg(msg, HomeType);
 
@@ -199,49 +204,56 @@ Begin
 
     switch msg.mtype
     case GetS:     
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
       AddToSharersList(msg.src);
             
     case GetM:
-      assert (msg.src = HomeNode.owner) "Writeback from non-owner";
-      HomeNode.state := HT_Pending;
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val);
-      Send(Invalidation, msg.src, HomeType, VC1, UNDEFINED);
-      undefine HomeNode.owner
+      HomeNode.state := H_Modified;
+      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, HomeNode.shares);
+	  SendInvReqToSharers(msg.src);
+	  
+	case PutS:
+	  RemoveFromSharersList(msg.src);
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, UNDEFINED);
       
-    case PutM:
+/*  case PutM:
       assert (msg.src = HomeNode.owner) "Writeback from non-owner";
-
+      undefine HomeNode.owner
+*/
     else
       ErrorUnhandledMsg(msg, HomeType);
 
     endswitch;
 
-  case HT_Pending:
+  case H_Modified:
     switch msg.mtype
    
-    case WBReq:
-    
-    -- When the home directory is in the transient state, 
-    -- it means that it is waiting for the data from the owner
-    -- if it receive a WBReq, it means the data from the old owner send back date to the home node
-    -- So it will send this data to the requestor
-    
+    case GetS:
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
-      HomeNode.state := H_Valid;
-      HomeNode.val := msg.val;
-      Send(ReadAck, HomeNode.owner, HomeType, VC1, HomeNode.val);
+      HomeNode.state := HT_Pending;
+        --Home node is waiting for the data to be sent back from the modified node
+      Send(Fwd_GetS, HomeNode.owner, HomeType, VC1, UNDEFINED, UNDEFINED);
 
-    case ReadReq:
-    
-    -- When there is another read request, it will put the read request into inbox
-    
-    	msg_processed := false; -- stall message in InBox
-
+    case GetM:
+      Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
+      Send(Fwd_GetM, HomeNode.owner, HomeType, VC1, UNDEFINED, UNDEFINED);
+      HomeNode.owner := msg.src;
+/*
+   msg_processed := false; -- stall message in InBox
+*/
+	case PutM:
+	  Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
+	  HomeNode.state := Invalid;
+	  HomeNode.val := msg.val;
+	
     else
       ErrorUnhandledMsg(msg, HomeType);
 
     endswitch;
+    
+   case HT_Pending:
+     --------------------------------------------------------------------------------------------------------------------------------------------------------
+     --------------------------------------------------------------------------------------------------------------------------------------------------------     
   endswitch;
 End;
 
