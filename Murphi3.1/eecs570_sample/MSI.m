@@ -357,7 +357,7 @@ Begin
   case P_Modified:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC0, pv, 0);
+        Send(Data, msg.src, p, VC1, pv, 0);
         Send(Data, HomeType, p, VC0, pv, 0);
         ps := P_Shared;
         
@@ -466,43 +466,97 @@ Begin
       case Data:
         if (msg.src = HomeType)
         then 
-          if 
+          if (msg.scnt = 0)
+          then
+            ps := P_Modified;
+          endif;
+          
+          if !(msg.scnt = 0)
+          then
+            ps := SM_A;
+            pan:= msg.scnt;
+          endif;
         endif;
-        if ()
-
-  case PT_Pending:
-    switch msg.mtype
-      case ReadAck:
-        pv := msg.val;
-        ps := P_Valid;
-      case RecallReq:
-    	msg_processed := false; -- stall message in InBox
+        
+        if !(msg.src = HomeType)
+        then
+          ps := P_Modified;
+        endif;
+        
+      case Inv_Ack:
+        -- In the textbook, it says the state should not change and ack--
+        -- But I think there should be a stall
+        msg_processed := false;
+        
       else
         ErrorUnhandledMsg(msg, p);
-    endswitch;
-
-
-  case PT_WritebackPending:    
-
+        
+    endswitch;  
+    
+  case SM_A:
     switch msg.mtype
-    case WBAck:
-      ps := P_Invalid;
-      undefine pv;
-    case RecallReq:				-- treat a recall request as a Writeback acknowledgement
-      ps := P_Invalid;
-      undefine pv;
+      case Fwd_GetS:
+        msg_processed := false;
+        
+      case Fwd_GetM:
+        msg_processed := false;
+        
+      case Inv_Ack:
+        pan := pan -1;
+        if (pan = 0)
+        then 
+          ps := P_Modified;
+        endif;
+      
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;  
+      
+  case MI_A:
+    switch msg.mtype
+      case Fwd_GetS:
+        Send(Data, msg.src, p, VC1, pv, 0);
+        Send(Data, HomeType, p, VC0, pv, 0);
+        ps := SI_A;
+        
+      case Fwd_GetM:
+        Send(Data, msg.src, p, VC1, pv, 0);
+        ps := II_A;
+        
+      case Put_Ack:
+        ps := P_Invalid;
+        
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;  
+    
+  case SI_A:
+    switch msg.mtype
+      case Invalidation:
+        Send(Inv_Ack, msg.src, p, VC0, UNDEFINED, 0);
+        ps := II_A;
+      
+      case Put_Ack:
+        ps := P_Invalid;
+      
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;  
+    
+  case II_A:
+    switch msg.mtype
+      case Put_Ack:
+        ps := P_Invalid;
+        
     else
-      ErrorUnhandledMsg(msg, p);
-	endswitch;
-
-  ----------------------------
-  -- Error catch
-  ----------------------------
-  else
-    ErrorUnhandledState();
-
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;   
   endswitch;
-  
+
   endalias;
   endalias;
   endalias;
