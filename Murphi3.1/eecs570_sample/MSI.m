@@ -9,8 +9,9 @@ const
   ValueCount:   2;       -- number of data values.
   VC0: 0;                -- low priority
   VC1: 1;
+  VC2: 2;
   QMax: 2;
-  NumVCs: VC1 - VC0 + 1;
+  NumVCs: VC2 - VC0 + 1;
   NetMax: ProcCount+1;
   
 
@@ -28,20 +29,20 @@ type
   ShareCnt: 0..ProcCount; 
   AckCnt: 0..ProcCount; 
 
-  MessageType: enum {  GetS,            -- request for data
-                       GetM,            -- request for data, and will modified that data.
+  MessageType: enum {  GetS,            -- request for data . vc1
+                       GetM,            -- request for data, and will modified that data. vc1
                        
-                       Fwd_GetS,		-- the home node is not the owner, instead other Proc is the owner
+                       Fwd_GetS,		-- the home node is not the owner, instead other Proc is the owner vc1
                        Fwd_GetM,
                        
-                       Invalidation,		
-                       Data,			-- to indicate the message is data.
+                       Invalidation,	-- vc1	
+                       Data,			-- to indicate the message is data. vc0
                                              
-					   PutS,            -- writeback the data in share state.
-					   PutM,            -- writeback the data in modified state.
+					   PutS,            -- writeback the data in share state. vc1
+					   PutM,            -- writeback the data in modified state. vc1
                            
-                       Put_Ack,			-- respond from home node to indicate the value is successful writeback    
-                       Inv_Ack 		    -- respond from other proc to indicate the block is invalidated
+                       Put_Ack,			-- respond from home node to indicate the value is successful writeback.  vc2  
+                       Inv_Ack 		    -- respond from other proc to indicate the block is invalidated. vc2
                     };
 
   Message:
@@ -142,6 +143,17 @@ Begin
 End;
 
 
+Procedure RemoveAllSharers();
+Begin
+	for n:Node do
+	  if (IsMember(n, Proc) &
+        MultiSetCount(i:HomeNode.sharers, HomeNode.sharers[i] = n) != 0)
+	  then 
+		RemoveFromSharersList(n);
+	  endif;
+	endfor;
+End;
+
 
 -- Sends a message to all sharers except rqst
 Procedure SendInvReqToSharers(rqst:Node);
@@ -152,7 +164,7 @@ Begin
     then
       if n != rqst
       then 
-      	Send(Invalidation, n, rqst, VC0, UNDEFINED,0);
+      	Send(Invalidation, n, rqst, VC1, UNDEFINED,0);
         -- Send invalidation message here 
       endif;
     endif;
@@ -187,15 +199,15 @@ Begin
     case GetS:
       HomeNode.state := H_Shared;
       AddToSharersList(msg.src);
-      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);
+      Send(Data, msg.src, HomeType, VC0, HomeNode.val, 0);
       
     case GetM:
 	  HomeNode.state := H_Modified;
       HomeNode.owner := msg.src;
-      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);	 
+      Send(Data, msg.src, HomeType, VC0, HomeNode.val, 0);	 
      
     case PutS:
-      Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
     
     case PutM:
     -- Initial State: Proc0 is in M, Proc1 is I, Dir is M
@@ -207,7 +219,7 @@ Begin
     
        if (IsUnDefined(HomeNode.owner))
        then
-       		Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+       		Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
        endif;
       
     else
@@ -223,23 +235,21 @@ Begin
 
     switch msg.mtype
     case GetS:     
-      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);
+      Send(Data, msg.src, HomeType, VC0, HomeNode.val, 0);
       AddToSharersList(msg.src);
             
     case GetM:
       
-      Send(Data, msg.src, HomeType, VC1, HomeNode.val, cnt);
+      Send(Data, msg.src, HomeType, VC0, HomeNode.val, cnt);
 	  SendInvReqToSharers(msg.src);
 	  HomeNode.owner := msg.src;
 	  -- clear shares
-	  For n:Node do
-	  	RemoveFromSharersList(n);
-	  endfor;
+	  RemoveAllSharers();
 	  HomeNode.state := H_Modified;
 	  
 	case PutS:
 	  RemoveFromSharersList(msg.src);
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
 	  if (cnt=0)
 	  then 
 	  	HomeNode.state := H_Invalid; 
@@ -249,7 +259,8 @@ Begin
       RemoveFromSharersList(msg.src);
       if (IsUnDefined(HomeNode.owner))
       then
-       	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+        RemoveFromSharersList(msg.src);
+       	Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
       endif;
       
     else
@@ -271,32 +282,29 @@ Begin
 	  
     case GetM:
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
-      Send(Fwd_GetM, HomeNode.owner, HomeType, VC1, UNDEFINED, 0);
+      --Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
+      Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
       HomeNode.owner := msg.src;
       
     case PutS:
-      Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
 
 	case PutM:
 	  if (!IsUnDefined(HomeNode.owner))
 	  then 
 	    HomeNode.state := H_Invalid;
 	    HomeNode.val   := msg.val;
-	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	    undefine HomeNode.owner;
 	  endif;
 	  
-	  if (IsUnDefined(HomeNode.owner))
-	  then
-	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	  endif;
+	  Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
 	
     else
       ErrorUnhandledMsg(msg, HomeType);
 
     endswitch;
     
-  case HT_Pending:
-	--M->S pending for data writeback from the modified node 
+  case HT_Pending: 
 	switch msg.mtype
 	
 	case GetS:
@@ -307,13 +315,13 @@ Begin
 	
 	case PutS:
 	  RemoveFromSharersList(msg.src);
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
 		
 	case PutM:
       if (IsUnDefined(HomeNode.owner))
       then
 	  	RemoveFromSharersList(msg.src);
-	  	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  	Send(Put_Ack, msg.src, HomeType, VC2, UNDEFINED, 0);
 	  endif;
 	  
     case Data:
@@ -348,7 +356,7 @@ Begin
 	  case Invalidation:
 		 ps := P_Invalid;
 		 undefine pv;
-		 Send(Inv_Ack, msg.src, p, VC0, UNDEFINED, 0);
+		 Send(Inv_Ack, msg.src, p, VC2, UNDEFINED, 0);
 
       else
          ErrorUnhandledMsg(msg, p);
@@ -357,12 +365,12 @@ Begin
   case P_Modified:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC1, pv, 0);
+        Send(Data, msg.src, p, VC0, pv, 0);
         Send(Data, HomeType, p, VC0, pv, 0);
         ps := P_Shared;
         
       case Fwd_GetM:
-      	Send(Data, msg.src, p, VC1, pv, 0);
+      	Send(Data, msg.src, p, VC0, pv, 0);
       	ps := P_Invalid;
 		  
 	  else
@@ -421,10 +429,10 @@ Begin
         endif;
       
       case Inv_Ack:
-		-- pan := pan - 1; 
+		pan := pan - 1; 
 		-- I believe there should be a stall
 		-- Instead of ack-- (in the textbook)
-		msg_processed := false;
+		-- msg_processed := false;
      
       else
         ErrorUnhandledMsg(msg, p);
@@ -460,7 +468,7 @@ Begin
         msg_processed := false;
         
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC2, UNDEFINED, 0);
         ps := IM_AD;
         
       case Data:
@@ -484,9 +492,10 @@ Begin
         endif;
         
       case Inv_Ack:
+        pan := pan - 1; 
         -- In the textbook, it says the state should not change and ack--
         -- But I think there should be a stall
-        msg_processed := false;
+        -- msg_processed := false;
         
       else
         ErrorUnhandledMsg(msg, p);
@@ -516,12 +525,12 @@ Begin
   case MI_A:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC1, pv, 0);
+        Send(Data, msg.src, p, VC0, pv, 0);
         Send(Data, HomeType, p, VC0, pv, 0);
         ps := SI_A;
         
       case Fwd_GetM:
-        Send(Data, msg.src, p, VC1, pv, 0);
+        Send(Data, msg.src, p, VC0, pv, 0);
         ps := II_A;
         
       case Put_Ack:
@@ -575,12 +584,12 @@ ruleset n:Proc Do
   	  rule "store new value"
    	    if (p.state = P_Invalid)
         then
-          Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+          Send(GetM, HomeType, n, VC1, UNDEFINED, 0);
  		  p.state := IM_AD;  
  	    endif;
  	    if (p.state = P_Shared)
  	    then
- 	      Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+ 	      Send(GetM, HomeType, n, VC1, UNDEFINED, 0);
  		  p.state := SM_AD;  
  	    endif;
  	    if (p.state = P_Modified)
@@ -595,19 +604,19 @@ ruleset n:Proc Do
     rule "read request"
       p.state = P_Invalid
       ==>
-        Send(GetS, HomeType, n, VC0, UNDEFINED, 0);
+        Send(GetS, HomeType, n, VC1, UNDEFINED, 0);
         p.state := IS_D;
     endrule;
     
     rule "replacement(writeback)"
       if (p.state = P_Shared)
       then
-        Send(PutS, HomeType, n, VC0, p.val, 0);
+        Send(PutS, HomeType, n, VC1, p.val, 0);
         p.state := SI_A;
       endif;
       if (p.state = P_Modified)
       then
-        Send(PutM, HomeType, n, VC0, p.val, 0);
+        Send(PutM, HomeType, n, VC1, p.val, 0);
         p.state := MI_A;
       endif;
     endrule;
