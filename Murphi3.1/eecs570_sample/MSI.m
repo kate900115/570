@@ -25,7 +25,8 @@ type
 
   VCType: VC0..NumVCs-1;
   
-  ShareNodes: multiset [ProcCount] of Node; 
+  ShareCnt: 0..ProcCount; 
+  AckCnt: 0..ProcCount; 
 
   MessageType: enum {  GetS,            -- request for data
                        GetM,            -- request for data, and will modified that data.
@@ -34,11 +35,11 @@ type
                        Fwd_GetM,
                        
                        Invidation,		
+                       Data,			-- to indicate the message is data.
                                              
 					   PutS,            -- writeback the data in share state.
 					   PutM,            -- writeback the data in modified state.
                            
-                       Get_Ack,
                        Put_Ack,			-- respond from home node to indicate the value is successful writeback    
                        Inv_Ack 		    -- respond from other proc to indicate the block is invalidated
                     };
@@ -52,7 +53,7 @@ type
       vc: VCType;
       val: Value;
       -- indicate the index of nodes in the sharer's state
-      sharelist: ShareNodes;
+      sharenum: ShareCnt;
       
     End;
 
@@ -67,10 +68,11 @@ type
 
   ProcState:
     Record
-      state: enum { P_Valid, P_Invalid, 								--stable states
+      state: enum { P_Invalid, P_Shared, P_Modified, 					--stable states
                   IS_D, IM_AD, IM_A, SM_AD, MI_A, SI_A, II_A			--transient states
                   };
       val: Value;
+      AckNum: AckCnt;
     End;
 
 ----------------------------------------------------------------------
@@ -92,7 +94,7 @@ Procedure Send(mtype:MessageType;
 	           src:Node;	--sourse node
                vc:VCType;
                val:Value;
-               slist: ShareNodes
+               scnt: ShareCnt
          );
 var msg:Message;
 Begin
@@ -150,7 +152,7 @@ Begin
     then
       if n != rqst
       then 
-      	Send(Invalidation, n, rqst, VC0, UNDEFINED,UNDEFINED);
+      	Send(Invalidation, n, rqst, VC0, UNDEFINED,0);
         -- Send invalidation message here 
       endif;
     endif;
@@ -177,6 +179,7 @@ Begin
   msg_processed := true;
 
   switch HomeNode.state
+  
   case H_Invalid:                      
   --H_Invalid means that there is no other node who has the value.
     switch msg.mtype
@@ -184,42 +187,71 @@ Begin
     case GetS:
       HomeNode.state := H_Shared;
       AddToSharersList(msg.src);
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
+      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);
       
     case GetM:
 	  HomeNode.state := H_Modified;
       HomeNode.owner := msg.src;
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
+      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);	 
+     
+    case PutS:
+      Send(Put_Ack, msg,src, HomeType, VC1, UNDEFINED, 0);
+    
+    case PutM:
+    -- Initial State: Proc0 is in M, Proc1 is I, Dir is M
+    -- (1) Proc1 issues a GetM
+    -- (2) Directory issues FwdGetM and Proc0 simultaneously evicts with a PutM. A really really slow PutM...
+    -- (3) The FwdGetM reaches Proc0 and is serviced because it's in the MIa state
+    -- (4) Proc1 (new owner) receives data from Proc0 and is able to evict by issuing it's own PutM.
+    -- (5) If the PutM from Proc1 gets to the Dir before PutM in step 2, then the directory will be in the Invalid state by the time the 2nd one arrives
+    
+       if (IsUnDefined(HomeNode.owner))
+       then
+       		Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+       endif;
       
     else
       ErrorUnhandledMsg(msg, HomeType);
 
-    endswitch;
+  endswitch;
 
   case H_Shared:							
   --H_Valid means that there is other node who has the value.
   --That node should return the value to the requesting node.
     Assert (cnt = 0) 
-       "HomeNode has no owner, but line is Valid";
+       "HomeNode has no sharer, but line is Valid";
 
     switch msg.mtype
     case GetS:     
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, UNDEFINED);
+      Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);
       AddToSharersList(msg.src);
             
     case GetM:
-      HomeNode.state := H_Modified;
-      Send(Get_Ack, msg.src, HomeType, VC1, HomeNode.val, HomeNode.shares);
+      
+      Send(Data, msg.src, HomeType, VC1, HomeNode.val, cnt);
 	  SendInvReqToSharers(msg.src);
+	  HomeNode.owner := msg.src;
+	  -- clear shares
+	  For n:Node do
+	  	RemoveFromSharersList(n);
+	  endfor;
+	  HomeNode.state := H_Modified;
 	  
 	case PutS:
 	  RemoveFromSharersList(msg.src);
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, UNDEFINED);
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  if (cnt=0)
+	  then 
+	  	HomeNode.state := H_Invalid; 
+	  endif;
       
-/*  case PutM:
-      assert (msg.src = HomeNode.owner) "Writeback from non-owner";
-      undefine HomeNode.owner
-*/
+    case PutM:
+      RemoveFromSharersList(msg.src);
+      if (IsUnDefined(HomeNode.owner))
+      then
+       	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      endif;
+      
     else
       ErrorUnhandledMsg(msg, HomeType);
 
@@ -230,32 +262,72 @@ Begin
    
     case GetS:
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
+      AddToSharersList(msg.src);
+      AddToSharersList(HomeNode.owner);
+      Send(Fwd_GetS, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
       HomeNode.state := HT_Pending;
-        --Home node is waiting for the data to be sent back from the modified node
-      Send(Fwd_GetS, HomeNode.owner, HomeType, VC1, UNDEFINED, UNDEFINED);
-
+		--Home node is waiting for the data to be sent back from the modified node
+	  undefine HomeNode.owner;
+	  
     case GetM:
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
-      Send(Fwd_GetM, HomeNode.owner, HomeType, VC1, UNDEFINED, UNDEFINED);
+      Send(Fwd_GetM, HomeNode.owner, HomeType, VC1, UNDEFINED, 0);
       HomeNode.owner := msg.src;
-/*
-   msg_processed := false; -- stall message in InBox
-*/
+      
+    case PutS:
+      Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+
 	case PutM:
-	  Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
-	  HomeNode.state := Invalid;
-	  HomeNode.val := msg.val;
+	  if (!IsUnDefined(HomeNode.owner))
+	  then 
+	    HomeNode.state := H_Invalid;
+	    HomeNode.val   := msg.val;
+	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  endif;
+	  
+	  if (IsUnDefined(HomeNode.owner))
+	  then
+	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  endif;
 	
     else
       ErrorUnhandledMsg(msg, HomeType);
 
     endswitch;
     
-   case HT_Pending:
-     --------------------------------------------------------------------------------------------------------------------------------------------------------
-     --------------------------------------------------------------------------------------------------------------------------------------------------------     
+  case HT_Pending:
+	--M->S pending for data writeback from the modified node 
+	switch msg.mtype
+	
+	case GetS:
+	  msg_processed := false;
+	  
+	case GetM:
+	  msg_processed := false;
+	
+	case PutS:
+	  RemoveFromSharersList(msg.src);
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+		
+	case PutM:
+      if (IsUnDefined(HomeNode.owner))
+      then
+	  	RemoveFromSharersList(msg.src);
+	  	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  endif;
+	  
+    case Data:
+      HomeNode.val := msg.val;
+      HomeNode.state:= H_Shared;
+     
+	else
+	  ErrorUnhandledMsg(msg, HomeType);
+	  
+  endswitch;  
   endswitch;
 End;
+
+
 
 
 Procedure ProcReceive(msg:Message; p:Proc);
@@ -268,29 +340,145 @@ Begin
 
   alias ps:Procs[p].state do
   alias pv:Procs[p].val do
-
+  alias pan:Procs[p].AckNum do  
+  
   switch ps
-  case P_Valid:
+  case P_Shared:
+    switch msg.mtype	 
+	  case Invalidation:
+		 ps := P_Invalid;
+		 undefine pv;
+		 Send(Inv_Ack, msg.src, p, VC0, UNDEFINED, 0);
 
+      else
+         ErrorUnhandledMsg(msg, p);
+  endswitch;
+
+  case P_Modified:
     switch msg.mtype
-    case RecallReq:
-      Send(WBReq, msg.src, p, VC1, pv);
-      Undefine pv;
-      ps := P_Invalid;
-    else
-      ErrorUnhandledMsg(msg, p);
+      case Fwd_GetS:
+        Send(Data, msg.src, p, VC0, pv, 0);
+        Send(Data, HomeType, p, VC0, pv, 0);
+        ps := P_Shared;
+        
+      case Fwd_GetM:
+      	Send(Data, msg.src, p, VC1, pv, 0);
+      	ps := P_Invalid;
+		  
+	  else
+        ErrorUnhandledMsg(msg, p);
+    endswitch;
+  
+  case IS_D:
+  	switch msg.mtype
+  	  case Invalidation:
+  	    msg_processed := false;
+  	    
+  	  case Data:
+  	    if (msg.src = HomeType)
+  	    then
+  	      if (msg.scnt = 0)
+  	      then
+  	      	ps := P_Shared;
+  	      endif;
+  	    endif;
+  	    
+  	    if !(msg.src = HomeType)
+  	    then
+  	    	ps := P_Shared;
+  	    endif;
+  	   
+  	  else
+        ErrorUnhandledMsg(msg, p);
+        
     endswitch;
 
-  case PT_Pending:
-
+  case IM_AD:
     switch msg.mtype
-    case ReadAck:
-      pv := msg.val;
-      ps := P_Valid;
-    case RecallReq:
+      case Fwd_GetS:
+        msg_processed := false;
+       
+      case Fwd_GetM:
+        msg_processed := false;
+        
+      case Data:
+        if (msg.src = HomeType)
+        then
+          if (msg.scnt = 0)
+          then
+            ps := P_Modified;
+          endif;
+          if !(msg.scnt = 0)
+          then
+            ps := IM_A;
+            pan:= msg.scnt;
+          endif;
+        endif;
+ 
+        if !(msg.src = HomeType)
+        then
+          ps := P_Modified;
+        endif;
+      
+      case Inv_Ack:
+		-- pan := pan - 1; 
+		-- I believe there should be a stall
+		-- Instead of ack-- (in the textbook)
+		msg_processed := false;
+     
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+      endswitch;
+	  
+  case IM_A:
+    switch msg.mtype  
+      case Fwd_GetS:
+        msg_processed := false;
+        
+      case Fwd_GetM:
+        msg_processed := false;
+      
+      case Inv_Ack:
+        pan := pan - 1; 
+        if (pan=0)
+        then
+          ps := P_Modified;
+        endif;
+        
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;
+  
+  case SM_AD:
+    switch msg.mtype
+      case Fwd_GetS:
+        msg_processed := false;
+        
+      case Fwd_GetM:
+        msg_processed := false;
+        
+      case Invalidation:
+        Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+        ps := IM_AD;
+        
+      case Data:
+        if (msg.src = HomeType)
+        then 
+          if 
+        endif;
+        if ()
+
+  case PT_Pending:
+    switch msg.mtype
+      case ReadAck:
+        pv := msg.val;
+        ps := P_Valid;
+      case RecallReq:
     	msg_processed := false; -- stall message in InBox
-    else
-      ErrorUnhandledMsg(msg, p);
+      else
+        ErrorUnhandledMsg(msg, p);
     endswitch;
 
 
@@ -305,7 +493,7 @@ Begin
       undefine pv;
     else
       ErrorUnhandledMsg(msg, p);
-		endswitch;
+	endswitch;
 
   ----------------------------
   -- Error catch
@@ -315,6 +503,7 @@ Begin
 
   endswitch;
   
+  endalias;
   endalias;
   endalias;
 End;
@@ -345,7 +534,7 @@ ruleset n:Proc Do
   endrule;
 
 
-  rule "writeback"
+  rule "replacement(writeback)"
     (p.state = P_Valid)
   ==>
     Send(WBReq, HomeType, n, VC1, p.val); 
