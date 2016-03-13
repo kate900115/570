@@ -34,7 +34,7 @@ type
                        Fwd_GetS,		-- the home node is not the owner, instead other Proc is the owner
                        Fwd_GetM,
                        
-                       Invidation,		
+                       Invalidation,		
                        Data,			-- to indicate the message is data.
                                              
 					   PutS,            -- writeback the data in share state.
@@ -69,7 +69,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, 					--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, MI_A, SI_A, II_A			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A, SI_A, II_A			--transient states
                   };
       val: Value;
       AckNum: AckCnt;
@@ -103,7 +103,7 @@ Begin
   msg.src   := src;
   msg.vc    := vc;
   msg.val   := val;
-  msg.sharelist := slist;
+  msg.sharenum := scnt;
   MultiSetAdd(msg, Net[dst]);
 End;
 
@@ -195,7 +195,7 @@ Begin
       Send(Data, msg.src, HomeType, VC1, HomeNode.val, 0);	 
      
     case PutS:
-      Send(Put_Ack, msg,src, HomeType, VC1, UNDEFINED, 0);
+      Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
     
     case PutM:
     -- Initial State: Proc0 is in M, Proc1 is I, Dir is M
@@ -377,7 +377,7 @@ Begin
   	  case Data:
   	    if (msg.src = HomeType)
   	    then
-  	      if (msg.scnt = 0)
+  	      if (msg.sharenum = 0)
   	      then
   	      	ps := P_Shared;
   	      endif;
@@ -404,14 +404,14 @@ Begin
       case Data:
         if (msg.src = HomeType)
         then
-          if (msg.scnt = 0)
+          if (msg.sharenum = 0)
           then
             ps := P_Modified;
           endif;
-          if !(msg.scnt = 0)
+          if !(msg.sharenum = 0)
           then
             ps := IM_A;
-            pan:= msg.scnt;
+            pan:= msg.sharenum;
           endif;
         endif;
  
@@ -466,15 +466,15 @@ Begin
       case Data:
         if (msg.src = HomeType)
         then 
-          if (msg.scnt = 0)
+          if (msg.sharenum = 0)
           then
             ps := P_Modified;
           endif;
           
-          if !(msg.scnt = 0)
+          if !(msg.sharenum = 0)
           then
             ps := SM_A;
-            pan:= msg.scnt;
+            pan:= msg.sharenum;
           endif;
         endif;
         
@@ -711,9 +711,9 @@ invariant "value in memory matches value of last write, when invalid"
     ->
 			HomeNode.val = LastWrite;
 
-invariant "values in valid state match last write"
+invariant "values in modified state match last write"
   Forall n : Proc Do	
-     Procs[n].state = P_Valid
+     Procs[n].state = P_Modified
     ->
 			Procs[n].val = LastWrite --LastWrite is updated whenever a new value is created 
 	end;
