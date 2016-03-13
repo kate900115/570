@@ -681,6 +681,7 @@ startstate
   -- home node initialization
   HomeNode.state := H_Invalid;
   undefine HomeNode.owner;
+  undefine HomeNode.sharers;
   HomeNode.val := v;
 	endfor;
 	LastWrite := HomeNode.val;
@@ -724,7 +725,7 @@ invariant "value is undefined while invalid"
 			IsUndefined(Procs[n].val)
 	end;
 	
-/*	
+	
 -- Here are some invariants that are helpful for validating shared state.
 
 invariant "modified implies empty sharers list"
@@ -749,5 +750,4 @@ invariant "values in shared state match memory"
      HomeNode.state = H_Shared & Procs[n].state = P_Shared
     ->
 			HomeNode.val = Procs[n].val
-	end;
-*/	
+	end;	
