@@ -362,7 +362,7 @@ Begin
          ErrorUnhandledMsg(msg, p);
   endswitch;
 
-  case P_Modified:
+  case P_Modified: 
     switch msg.mtype
       case Fwd_GetS:
         Send(Data, msg.src, p, VC0, pv, 0);
@@ -388,12 +388,14 @@ Begin
   	      if (msg.sharenum = 0)
   	      then
   	      	ps := P_Shared;
+  	      	pv := msg.val;
   	      endif;
   	    endif;
   	    
   	    if !(msg.src = HomeType)
   	    then
   	    	ps := P_Shared;
+  	    	pv := msg.val;
   	    endif;
   	   
   	  else
@@ -415,17 +417,20 @@ Begin
           if (msg.sharenum = 0)
           then
             ps := P_Modified;
+            pv := msg.val;
           endif;
-          if !(msg.sharenum = 0)
+          if (msg.sharenum > 0)
           then
             ps := IM_A;
             pan:= msg.sharenum;
+            pv := msg.val;
           endif;
         endif;
  
         if !(msg.src = HomeType)
         then
           ps := P_Modified;
+          pv := msg.val;
         endif;
       
       case Inv_Ack:
@@ -477,18 +482,21 @@ Begin
           if (msg.sharenum = 0)
           then
             ps := P_Modified;
+            pv := msg.val;
           endif;
           
-          if !(msg.sharenum = 0)
+          if (msg.sharenum > 0)
           then
             ps := SM_A;
             pan:= msg.sharenum;
+            pv := msg.val;
           endif;
         endif;
         
         if !(msg.src = HomeType)
         then
           ps := P_Modified;
+          pv := msg.val;
         endif;
         
       case Inv_Ack:
@@ -611,7 +619,7 @@ ruleset n:Proc Do
     rule "replacement(writeback)"
       if (p.state = P_Shared)
       then
-        Send(PutS, HomeType, n, VC1, p.val, 0);
+        Send(PutS, HomeType, n, VC1, UNDEFINED, 0);
         p.state := SI_A;
       endif;
       if (p.state = P_Modified)
