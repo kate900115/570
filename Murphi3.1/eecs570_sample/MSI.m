@@ -572,29 +572,45 @@ ruleset n:Proc Do
   alias p:Procs[n] Do
 
 	ruleset v:Value Do
-  	rule "store new value"
-   	 (p.state = P_Valid)
-    	==>
- 		   p.val := v;      
- 		   LastWrite := v;  --We use LastWrite to sanity check that reads receive the value of the last write
-  	endrule;
+  	  rule "store new value"
+   	    if (p.state = P_Invalid)
+        then
+          Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+ 		  p.state := IM_AD;  
+ 	    endif;
+ 	    if (p.state = P_Shared)
+ 	    then
+ 	      Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+ 		  p.state := SM_AD;  
+ 	    endif;
+ 	    if (p.state = P_Modified)
+ 	    then
+ 	      p.val := v;
+ 	      LastWrite := v; --We use LastWrite to sanity check that reads receive the value of the last write
+ 	    endif;
+ 	  
+      endrule;
 	endruleset;
 
-  rule "read request"
-    p.state = P_Invalid 
-  ==>
-    Send(ReadReq, HomeType, n, VC0, UNDEFINED);
-    p.state := PT_Pending;
-  endrule;
-
-
-  rule "replacement(writeback)"
-    (p.state = P_Valid)
-  ==>
-    Send(WBReq, HomeType, n, VC1, p.val); 
-    p.state := PT_WritebackPending;
-    undefine p.val;
-  endrule;
+    rule "read request"
+      p.state = P_Invalid
+      ==>
+        Send(GetS, HomeType, n, VC0, UNDEFINED, 0);
+        p.state := IS_D;
+    endrule;
+    
+    rule "replacement(writeback)"
+      if (p.state = P_Shared)
+      then
+        Send(PutS, HomeType, n, VC0, p.val, 0);
+        p.state := SI_A;
+      endif;
+      if (p.state = P_Modified)
+      then
+        Send(PutM, HomeType, n, VC0, p.val, 0);
+        p.state := MI_A;
+      endif;
+    endrule;
 
   endalias;
 endruleset;
@@ -673,6 +689,7 @@ startstate
   for i:Proc do
     Procs[i].state := P_Invalid;
     undefine Procs[i].val;
+    Procs[i].AckNum := 0;
   endfor;
 
   -- network initialization
