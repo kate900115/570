@@ -241,8 +241,19 @@ Begin
       AddToSharersList(msg.src);
             
     case GetM:
+      if (cnt = 1)
+      then
+        if (IsSharer(msg.src))
+        then
+          Send(Data, msg.src, HomeType, VC4, HomeNode.val, 0);
+        else
+          Send(Data, msg.src, HomeType, VC4, HomeNode.val, cnt);
+        endif;
+      else
+        Send(Data, msg.src, HomeType, VC4, HomeNode.val, cnt);
+      endif;
       
-      Send(Data, msg.src, HomeType, VC4, HomeNode.val, cnt);
+      
 	  SendInvReqToSharers(msg.src);
 	  HomeNode.owner := msg.src;
 	  -- clear shares
@@ -425,6 +436,8 @@ Begin
 
   case IM_AD:
     switch msg.mtype
+      case Invalidation:
+        --doing nothing at all ;
       case Fwd_GetS:
         msg_processed := false;
        
