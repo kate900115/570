@@ -294,7 +294,8 @@ Begin
 	case PutM:
 	  if !(HomeNode.owner=msg.src)
 	  then
-	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	    msg_processed := false;
+	    --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
 	  if (HomeNode.owner=msg.src)
 	  then
@@ -614,7 +615,18 @@ ruleset n:Proc Do
 
 	ruleset v:Value Do
   	  rule "store new value"
-   	    if (p.state = P_Invalid)
+   	   
+ 	    if (p.state = P_Modified)
+ 	    then
+ 	      p.val := v;
+ 	      LastWrite := v; --We use LastWrite to sanity check that reads receive the value of the last write
+ 	    endif;
+ 	  
+      endrule;
+	endruleset;
+	
+	rule "write request"
+	    if (p.state = P_Invalid)
         then
           Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
  		  p.state := IM_AD;  
@@ -624,14 +636,7 @@ ruleset n:Proc Do
  	      Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
  		  p.state := SM_AD;  
  	    endif;
- 	    if (p.state = P_Modified)
- 	    then
- 	      p.val := v;
- 	      LastWrite := v; --We use LastWrite to sanity check that reads receive the value of the last write
- 	    endif;
- 	  
-      endrule;
-	endruleset;
+ 	endrule;
 
     rule "read request"
       p.state = P_Invalid
