@@ -305,7 +305,8 @@ Begin
 	case PutM:
 	  if !(HomeNode.owner=msg.src)
 	  then
-	    msg_processed := false;
+	    --msg_processed := false;
+	    --doing nothing at all
 	    --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
 	  if (HomeNode.owner=msg.src)
