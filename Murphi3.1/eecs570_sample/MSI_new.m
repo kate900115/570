@@ -326,9 +326,9 @@ Begin
 	case PutM:
       if !(HomeNode.owner = msg.src)
       then
-      	--msg_processed := false;
-	  	RemoveFromSharersList(msg.src);
-	  	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      	msg_processed := false;
+	  	--RemoveFromSharersList(msg.src);
+	  	--Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  --else
 	    --ErrorUnhandledMsg(msg, HomeType);
 	  endif;
