@@ -262,7 +262,6 @@ Begin
 	  HomeNode.state := H_Modified;
 	  
 	case PutS:
-	 
 	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  if (cnt=1)
 	  then 
@@ -274,9 +273,16 @@ Begin
 	  RemoveFromSharersList(msg.src);
       
     case PutM:
-      RemoveFromSharersList(msg.src);
       if (IsUnDefined(HomeNode.owner))
       then
+        if (cnt =1)
+        then
+          if IsSharer(msg.src)
+          then
+            HomeNode.state := H_Invalid;
+          endif;
+        endif;
+
         RemoveFromSharersList(msg.src);
        	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       endif;
