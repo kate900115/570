@@ -353,7 +353,10 @@ Begin
 	  
     case Data:
       HomeNode.val := msg.val;
-      HomeNode.state:= H_Shared;
+      if !(cnt=0)
+      then
+        HomeNode.state:= H_Shared;
+      endif;
      
 	else
 	  ErrorUnhandledMsg(msg, HomeType);
