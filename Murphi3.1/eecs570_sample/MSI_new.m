@@ -12,8 +12,9 @@ const
   VC2: 2;
   VC3: 3;
   VC4: 4;
+  VC5: 5;
   QMax: 2;
-  NumVCs: VC4 - VC0 + 1;
+  NumVCs: VC5 - VC0 + 1;
   NetMax: ProcCount+1;
   
 
@@ -376,7 +377,7 @@ Begin
   case P_Invalid:
     switch msg.mtype
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         
       else
          ErrorUnhandledMsg(msg, p);
@@ -387,7 +388,7 @@ Begin
 	  case Invalidation:
 		 ps := P_Invalid;
 		 undefine pv;
-		 Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+		 Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
 
       else
          ErrorUnhandledMsg(msg, p);
@@ -508,7 +509,7 @@ Begin
         msg_processed := false;
         
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         ps := IM_AD;
         
       case Data:
@@ -589,7 +590,7 @@ Begin
   case SI_A:
     switch msg.mtype
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC1, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         ps := II_A;
       
       case Put_Ack:
