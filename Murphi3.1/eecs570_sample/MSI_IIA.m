@@ -517,7 +517,8 @@ Begin
         pan := pan - 1; 
         
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
+        msg_processed := false;
+        --Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         
       else
         ErrorUnhandledMsg(msg, p);
@@ -620,6 +621,10 @@ Begin
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
+      
+      case Invalidation:
+        msg_processed := false;
+        --Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         
       else
         ErrorUnhandledMsg(msg, p);
