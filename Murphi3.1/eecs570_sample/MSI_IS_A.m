@@ -518,7 +518,12 @@ Begin
   case IS_A:
     switch msg.mtype
       case Inv_Ack:
-        ps:= P_Shared;
+        if (pan=1)
+        then
+          ps := P_Shared;
+        endif;
+        pan := pan - 1; 
+
       else
         msg_processed := false;
     endswitch;
@@ -837,4 +842,4 @@ invariant "values in shared state match memory"
      HomeNode.state = H_Shared & Procs[n].state = P_Shared
     ->
 			HomeNode.val = Procs[n].val
-	end;	
+	end;
