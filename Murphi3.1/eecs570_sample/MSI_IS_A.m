@@ -510,6 +510,8 @@ Begin
         endif;
         pan := pan - 1; 
         
+      case Invalidation:
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         
       else
         ErrorUnhandledMsg(msg, p);
