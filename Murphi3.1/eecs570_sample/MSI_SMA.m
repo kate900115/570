@@ -219,7 +219,7 @@ Begin
     -- (4) Proc1 (new owner) receives data from Proc0 and is able to evict by issuing it's own PutM.
     -- (5) If the PutM from Proc1 gets to the Dir before PutM in step 2, then the directory will be in the Invalid state by the time the 2nd one arrives
     
-       if (IsUnDefined(HomeNode.owner))
+       if !(HomeNode.owner=msg.src)
        then
        		Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
        endif;
@@ -272,7 +272,7 @@ Begin
 	  RemoveFromSharersList(msg.src);
       
     case PutM:
-      if (IsUnDefined(HomeNode.owner))
+      if !(HomeNode.owner=msg.src)
       then
         if (cnt =1)
         then
