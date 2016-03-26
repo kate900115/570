@@ -63,7 +63,7 @@ type
   HomeState:
     Record
       state: enum { H_Invalid, H_Modified, H_Shared, 					--stable states
-      						H_SM_A,	HT_Pending }; 							--transient states during recall
+      						H_SM_A,	H_MS_D }; 							--transient states during recall
       owner: Node;	
       sharers: multiset [ProcCount] of Node;    						
       val: Value; 
@@ -299,7 +299,7 @@ Begin
       AddToSharersList(msg.src);
       AddToSharersList(HomeNode.owner);
       Send(Fwd_GetS, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
-      HomeNode.state := HT_Pending;
+      HomeNode.state := H_MS_D;
 		--Home node is waiting for the data to be sent back from the modified node
 	  undefine HomeNode.owner;
 	  
@@ -347,7 +347,7 @@ Begin
         msg_processed := false;
       endswitch;
     
-  case HT_Pending: 
+  case H_MS_D: 
 	switch msg.mtype
 	
 	case GetS:
@@ -375,6 +375,8 @@ Begin
       if !(cnt=0)
       then
         HomeNode.state:= H_Shared;
+      else
+        HomeNode.state:= H_Invalid;
       endif;
      
 	else
