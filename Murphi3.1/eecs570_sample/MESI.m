@@ -227,6 +227,9 @@ Begin
 	  then 
         Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       endif;
+
+    case Fwd_Ack:
+      --doing nothing at all
       
     else
       ErrorUnhandledMsg(msg, HomeType);
@@ -392,6 +395,9 @@ Begin
 	    undefine HomeNode.owner;
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
+
+    case Fwd_Ack:
+      --doing nothing at all
 	  
     else
       ErrorUnhandledMsg(msg, HomeType);
@@ -457,6 +463,9 @@ Begin
 	    --else
 	    --ErrorUnhandledMsg(msg, HomeType);
 	  endif;
+
+    case Fwd_Ack:
+      -- doing nothing at all
 	  
     case Data:
       HomeNode.val := msg.val;
@@ -520,6 +529,7 @@ Begin
         
       case Fwd_GetM:
       	Send(Data, msg.src, p, VC4, pv, 0);
+        Send(Fwd_Ack, HomeType, p, VC4, UNDEFINED, 0);
       	ps := P_Invalid;
       	undefine pv;
 		  
