@@ -368,6 +368,14 @@ Begin
       
     case PutS:
       Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      
+    case PutE:
+      if !(HomeNode.owner = msg.src)
+      then
+        Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      else
+        ErrorUnhandledMsg(msg, HomeType);
+      endif;
 
 	case PutM:
 	  if !(HomeNode.owner=msg.src)
@@ -411,6 +419,15 @@ Begin
 	  
 	case GetM:
 	  msg_processed := false;
+	  
+	case Fwd_GetS:
+	  msg_processed := false;
+	  
+	case Fwd_GetM:
+	  msg_processed := false;
+	  
+	case PutE:
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	
 	case PutS:
 	  RemoveFromSharersList(msg.src);
