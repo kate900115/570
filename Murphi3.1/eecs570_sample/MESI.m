@@ -505,6 +505,7 @@ Begin
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
         ps := P_Invalid;
+        undefine pv;
         
       else
         ErrorUnhandledMsg(msg, p);
