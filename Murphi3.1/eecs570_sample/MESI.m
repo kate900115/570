@@ -743,12 +743,13 @@ Begin
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
+        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := II_A;
         
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
-        
+
       else
         ErrorUnhandledMsg(msg, p);
         
