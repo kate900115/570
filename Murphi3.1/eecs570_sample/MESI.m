@@ -316,7 +316,7 @@ Begin
 		HomeNode.state := H_MS_D;
 
 	  case GetM:
-		Send(Fwd_GetM, HomeNode.owner, HomeType, VC1, UNDEFINED, 0);
+		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
 		HomeNode.owner := msg.src;
 		HomeNode.state := H_Modified;
 	 
