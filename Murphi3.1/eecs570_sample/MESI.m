@@ -536,7 +536,7 @@ Begin
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
-        --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := P_Invalid;
         undefine pv;
         
