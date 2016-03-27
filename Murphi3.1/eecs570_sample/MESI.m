@@ -422,11 +422,9 @@ Begin
       	msg_processed := false;
 	  	--RemoveFromSharersList(msg.src);
 	  	--Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	  --else
+	    --else
 	    --ErrorUnhandledMsg(msg, HomeType);
 	  endif;
-	  
-	  
 	  
     case Data:
       HomeNode.val := msg.val;
@@ -516,6 +514,12 @@ Begin
   	switch msg.mtype
   	  case Invalidation:
   	    msg_processed := false;
+  	    
+  	  case Fwd_GetS:
+	    msg_processed := false;
+	  
+	  case Fwd_GetM:
+	    msg_processed := false;
   	    
   	  case ExcData:
   	    ps := P_Exclusive;
