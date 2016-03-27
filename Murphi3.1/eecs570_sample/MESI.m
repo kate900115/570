@@ -45,7 +45,8 @@ type
 					   PutM,            -- writeback the data in modified state. 
                        PutE,    
                        Put_Ack,			-- respond from home node to indicate the value is successful writeback.  
-                       Inv_Ack 		    -- respond from other proc to indicate the block is invalidated. 
+                       Inv_Ack, 		    -- respond from other proc to indicate the block is invalidated.
+                       Fwd_Ack
                     };
 
   Message:
@@ -64,7 +65,7 @@ type
   HomeState:
     Record
       state: enum { H_Invalid, H_Modified, H_Shared, H_Exclusive,					--stable states
-      						H_SM_A,	H_MS_D }; 							--transient states during recall
+      						H_SM_A,	H_MS_D, H_EM_A }; 							--transient states during recall
       owner: Node;	
       sharers: multiset [ProcCount] of Node;    						
       val: Value; 
@@ -298,7 +299,7 @@ Begin
         RemoveFromSharersList(msg.src);
 		Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       else
-	    ErrorUnhandledMsg(msg, HomeType);
+	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
       
     else
@@ -318,7 +319,7 @@ Begin
 	  case GetM:
 		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
 		HomeNode.owner := msg.src;
-		HomeNode.state := H_Modified;
+		HomeNode.state := H_EM_A;
 	 
 	  case PutS:
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
@@ -410,8 +411,21 @@ Begin
       else
         msg_processed := false;
       endswitch;
-    
-  case H_MS_D: 
+
+
+  case H_EM_A:
+    switch msg.mtype
+      case PutE:
+        msg_processed := false;
+      case Fwd_Ack:
+        HomeNode.state := H_Modified;
+      else
+        msg_processed := false;
+      endswitch;
+
+
+
+  case H_MS_D:
 	switch msg.mtype
 	
 	case GetS:
@@ -427,7 +441,8 @@ Begin
 	  msg_processed := false;
 	  
 	case PutE:
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      msg_processed := false;
+	  --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	
 	case PutS:
 	  RemoveFromSharersList(msg.src);
@@ -521,6 +536,7 @@ Begin
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
+        --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := P_Invalid;
         undefine pv;
         
@@ -731,6 +747,7 @@ Begin
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
+        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := II_A;
       
       case Put_Ack:
