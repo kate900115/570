@@ -309,7 +309,7 @@ Begin
   case H_Exclusive:
 	switch msg.mtype
 	  case GetS:
-		Send(Fwd_GetS, HomeNode.owner, HomeType, VC1, UNDEFINED, 0);
+		Send(Fwd_GetS, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
 		AddToSharersList(HomeNode.owner);
 		AddToSharersList(msg.src);
 		undefine HomeNode.owner;
