@@ -333,6 +333,17 @@ Begin
 	    else
 		  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    endif;
+	    
+	  case PutE:
+	  if (HomeNode.owner = msg.src)
+	  then
+	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	    undefine HomeNode.owner;
+	    HomeNode.state := H_Invalid;
+	  else
+        Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  endif;
+	    
 	  else
       ErrorUnhandledMsg(msg, HomeType);
 	endswitch;
@@ -373,15 +384,6 @@ Begin
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
 	  
-    case PutE:
-	  if (HomeNode.owner = msg.src)
-	  then
-	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	    undefine HomeNode.owner;
-	    HomeNode.state := H_Invalid;
-	  else
-        Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	  endif;
     else
       ErrorUnhandledMsg(msg, HomeType);
 
