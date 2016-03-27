@@ -304,7 +304,10 @@ Begin
       else
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
-      
+
+    case Fwd_Ack:
+      --doing nothing at all
+
     else
       ErrorUnhandledMsg(msg, HomeType);
 
@@ -347,7 +350,10 @@ Begin
 	  else
         Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  endif;
-	    
+
+      case Fwd_Ack:
+        --doing nothing at all
+
 	  else
       ErrorUnhandledMsg(msg, HomeType);
 	endswitch;
