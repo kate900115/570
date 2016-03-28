@@ -324,7 +324,7 @@ Begin
 
 	  case GetM:
 		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
-		--HomeNode.owner := msg.src;
+		HomeNode.owner := msg.src;
 		HomeNode.state := H_EM_A;
 	 
 	  case PutS:
