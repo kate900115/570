@@ -1042,3 +1042,9 @@ invariant "values in shared state match memory"
     ->
 			HomeNode.val = Procs[n].val
 	end;	
+
+-- for MESI
+invariant "Exclusive implies empty sharers list"
+HomeNode.state = H_Exclusive
+->
+MultiSetCount(i:HomeNode.sharers, true) = 0;
