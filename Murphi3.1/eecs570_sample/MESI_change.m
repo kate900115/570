@@ -1045,6 +1045,13 @@ invariant "values in shared state match memory"
 
 -- for MESI
 invariant "Exclusive implies empty sharers list"
-HomeNode.state = H_Exclusive
-->
-MultiSetCount(i:HomeNode.sharers, true) = 0;
+  HomeNode.state = H_Exclusive
+    ->
+      MultiSetCount(i:HomeNode.sharers, true) = 0;
+
+invariant "the value of Processor in exclusive state should be the same as Memory"
+  Forall n : Proc Do
+     Procs[n].state = P_Exclusive
+    ->
+     Procs[n].val = HomeNode.val
+  end;

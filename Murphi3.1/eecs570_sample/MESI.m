@@ -324,7 +324,7 @@ Begin
 
 	  case GetM:
 		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
-		HomeNode.owner := msg.src;
+		--HomeNode.owner := msg.src;
 		HomeNode.state := H_EM_A;
 	 
 	  case PutS:
@@ -430,7 +430,10 @@ Begin
       case PutE:
         msg_processed := false;
       case Fwd_Ack:
-        HomeNode.state := H_Modified;
+        if (HomeNode.owner = msg.src)
+        then
+          HomeNode.state := H_Modified;
+        endif;
       else
         msg_processed := false;
       endswitch;
@@ -1014,4 +1017,9 @@ invariant "values in shared state match memory"
      HomeNode.state = H_Shared & Procs[n].state = P_Shared
     ->
 			HomeNode.val = Procs[n].val
-	end;	
+	end;
+
+
+
+
+
