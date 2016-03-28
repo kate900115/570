@@ -65,7 +65,7 @@ type
   HomeState:
     Record
       state: enum { H_Invalid, H_Modified, H_Shared, H_Exclusive,					--stable states
-      						H_SM_A,	H_MS_D, H_EM_A }; 							--transient states during recall
+      						H_SM_A,	H_MS_D, H_EM_A, H_MM_A }; 							--transient states during recall
       owner: Node;	
       sharers: multiset [ProcCount] of Node;    						
       val: Value; 
@@ -302,7 +302,17 @@ Begin
         RemoveFromSharersList(msg.src);
 		Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       else
-	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+        if IsSharer(msg.src)
+        then
+          if (cnt = 1)
+          then
+            HomeNode.state := H_Invalid;
+          endif;
+          RemoveFromSharersList(msg.src);
+          Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+        else
+          Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+        endif;
 	  endif;
 
     case Fwd_Ack:
@@ -375,7 +385,8 @@ Begin
       Assert (!IsUnDefined(HomeNode.owner)) "owner undefined";
       Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
       HomeNode.owner := msg.src;
-      
+      HomeNode.state := H_MM_A;
+
     case PutS:
       Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       
@@ -430,10 +441,23 @@ Begin
       case PutE:
         msg_processed := false;
       case Fwd_Ack:
-        if (HomeNode.owner = msg.src)
-        then
-          HomeNode.state := H_Modified;
-        endif;
+        --if (HomeNode.owner = msg.src)
+        --then
+        HomeNode.state := H_Modified;
+        --endif;
+      else
+        msg_processed := false;
+      endswitch;
+
+  case H_MM_A:
+    switch msg.mtype
+      case PutE:
+        msg_processed := false;
+      case Fwd_Ack:
+        --if (HomeNode.owner = msg.src)
+        --then
+        HomeNode.state := H_Modified;
+        --endif;
       else
         msg_processed := false;
       endswitch;
@@ -442,7 +466,7 @@ Begin
 
   case H_MS_D:
 	switch msg.mtype
-	
+
 	case GetS:
 	  msg_processed := false;
 	  
