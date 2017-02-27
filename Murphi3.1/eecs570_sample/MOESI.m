@@ -781,9 +781,10 @@ Begin
   case MI_A:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC4, pv, 0);
-        Send(Data, HomeType, p, VC4, pv, 0);
-        ps := SI_A;
+        --Send(Data, msg.src, p, VC4, pv, 0);
+        --Send(Data, HomeType, p, VC4, pv, 0);
+        --ps := SI_A;
+	msg_processed := false;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
