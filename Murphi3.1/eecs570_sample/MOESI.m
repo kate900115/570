@@ -75,7 +75,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,				--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, II_A					--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, MO_A, II_A					--transient states
                   };
       val: Value;
       AckNum: AckCnt;
@@ -486,7 +486,7 @@ Begin
 	  msg_processed := false;
 	  
 	case PutE:
-      msg_processed := false;
+          msg_processed := false;
 	  --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	
 	case PutS:
@@ -494,31 +494,42 @@ Begin
 	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 		
 	case PutM:
-      if !(HomeNode.owner = msg.src)
-      then
-      	msg_processed := false;
-	  	--RemoveFromSharersList(msg.src);
-	  	--Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+          if !(HomeNode.owner = msg.src)
+          then
+      	    msg_processed := false;
+	    --RemoveFromSharersList(msg.src);
+	    --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    --else
 	    --ErrorUnhandledMsg(msg, HomeType);
 	  endif;
 
-    case Fwd_Ack:
-      -- doing nothing at all
+        case Fwd_Ack:
+            -- doing nothing at all
 	  
-    case Data:
-      HomeNode.val := msg.val;
-      if !(cnt=0)
-      then
-        HomeNode.state:= H_Shared;
-      else
-        HomeNode.state:= H_Invalid;
-      endif;
+        case Data:
+          HomeNode.val := msg.val;
+          if !(cnt=0)
+          then
+            HomeNode.state:= H_Shared;
+          else
+            HomeNode.state:= H_Invalid;
+          endif;
      
 	else
 	  ErrorUnhandledMsg(msg, HomeType);
 	  
-    endswitch;  
+        endswitch;  
+
+
+  case H_MO_A:
+	switch msg.mtype
+	case GetS:
+	  --Send(Fwd_GetS, HomeNode.owner, msg.src, VC1, UNDEFINED, 0); 
+	  --AddToSharersList(msg.src);
+	  msg_processed := false;
+	case GetM:
+	  msg_processed := false;
+        endswitch;
   endswitch;
 End;
 
@@ -545,7 +556,7 @@ Begin
         
       else
          ErrorUnhandledMsg(msg, p);
-  endswitch;
+    endswitch;
   
   case P_Shared:
     switch msg.mtype	 
@@ -557,14 +568,13 @@ Begin
 
       else
          ErrorUnhandledMsg(msg, p);
-  endswitch;
+    endswitch;
 
   case P_Modified: 
     switch msg.mtype
       case Fwd_GetS:
         Send(Data, msg.src, p, VC4, pv, 0);
-        Send(Data, HomeType, p, VC4, pv, 0);
-        ps := P_Shared;
+        ps := MO_A;
         
       case Fwd_GetM:
       	Send(Data, msg.src, p, VC4, pv, 0);
