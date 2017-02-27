@@ -75,7 +75,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,				--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, MO_A, II_A					--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, MO_A, OI_A, II_A					--transient states
                   };
       val: Value;
       AckNum: AckCnt;
@@ -803,10 +803,10 @@ Begin
   case EI_A:
     switch msg.mtype
       case Fwd_GetS:
-        --Send(Data, msg.src, p, VC4, pv, 0);
+        Send(Data, msg.src, p, VC4, pv, 0);
         --Send(Data, HomeType, p, VC4, pv, 0);
-        --ps := OI_A;
-	msg_processed := false;
+        ps := OI_A;
+	--msg_processed := false;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
@@ -838,6 +838,17 @@ Begin
         ErrorUnhandledMsg(msg, p);
         
     endswitch;  
+
+  case OI_A:
+    switch msg.mtype
+      case Put_Ack:
+	ps := P_Invalid;
+        undefine pv;
+      case Fwd_Ack:
+	--Doing nothing
+      else
+	ErrorUnhandledMsg(msg, p);
+      endswitch;
     
   case II_A:
     switch msg.mtype
