@@ -328,10 +328,8 @@ Begin
 	switch msg.mtype
 	  case GetS:
 		Send(Fwd_GetS, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
-		AddToSharersList(HomeNode.owner);
 		AddToSharersList(msg.src);
-		undefine HomeNode.owner;
-		HomeNode.state := H_MS_D;
+		HomeNode.state := H_MO_A;
 
 	  case GetM:
 		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
@@ -529,6 +527,8 @@ Begin
 	  msg_processed := false;
 	case GetM:
 	  msg_processed := false;
+	case Fwd_Ack:
+	  HomeNode.state := H_Owned;
         endswitch;
   endswitch;
 End;
@@ -590,8 +590,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(Data, msg.src, p, VC4, pv, 0);
-        Send(Data, HomeType, p, VC4, pv, 0);
-        ps := P_Shared;
+        ps := MO_A;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
@@ -635,6 +634,8 @@ Begin
   	    then
   	    	ps := P_Shared;
   	    	pv := msg.val;
+		Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
   	    endif;
   	   
   	  else
@@ -801,9 +802,10 @@ Begin
   case EI_A:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC4, pv, 0);
-        Send(Data, HomeType, p, VC4, pv, 0);
-        ps := SI_A;
+        --Send(Data, msg.src, p, VC4, pv, 0);
+        --Send(Data, HomeType, p, VC4, pv, 0);
+        --ps := OI_A;
+	msg_processed := false;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
@@ -845,7 +847,13 @@ Begin
     else
         ErrorUnhandledMsg(msg, p);
         
-    endswitch;   
+    endswitch; 
+  
+  case MO_A:
+    switch msg.mtype
+      case Fwd_Ack:
+	ps := P_Owned;
+      endswitch;  
   endswitch;
 
   endalias;
