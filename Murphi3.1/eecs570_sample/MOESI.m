@@ -12,8 +12,9 @@ const
   VC3: 3;
   VC4: 4;
   VC5: 5;
+  VC6: 6;
   QMax: 2;
-  NumVCs: VC5 - VC0 + 1;
+  NumVCs: VC6 - VC0 + 1;
   NetMax: 2*ProcCount+1;
   
 
@@ -529,12 +530,12 @@ Begin
 	  AddToSharersList(msg.src);
 	  --msg_processed := false;
 	case GetM:
-	  Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt); 
-	  HomeNode.state := H_MOM_A;
-	  HomeNode.owner := msg.src;
-	  SendInvReqToSharers(msg.src);
-	  RemoveAllSharers();
-	  --msg_processed := false;
+	  --Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt); 
+	  --HomeNode.state := H_MOM_A;
+	  --HomeNode.owner := msg.src;
+	  --SendInvReqToSharers(msg.src);
+	  --RemoveAllSharers();
+	  msg_processed := false;
 	case Fwd_Ack:
 	  HomeNode.state := H_Owned;
 	case PutE:
@@ -543,9 +544,10 @@ Begin
 	  --undefine HomeNode.owner;
 	  msg_processed := false;
 	case PutM:
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	  HomeNode.state := H_MS_A;
-	  undefine HomeNode.owner;
+	  --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  --HomeNode.state := H_MS_A;
+	  --undefine HomeNode.owner;
+	  msg_processed := false;
 	case PutS:
 	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  RemoveFromSharersList(msg.src);
@@ -839,10 +841,9 @@ Begin
   case MI_A:
     switch msg.mtype
       case Fwd_GetS:
-        --Send(Data, msg.src, p, VC4, pv, 0);
-        --Send(Data, HomeType, p, VC4, pv, 0);
-        --ps := SI_A;
-	msg_processed := false;
+        Send(Data, msg.src, p, VC4, pv, 0);
+        ps := OI_A;
+	--msg_processed := false;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
@@ -988,17 +989,17 @@ ruleset n:Proc Do
     rule "replacement(writeback)"
       if (p.state = P_Shared)
       then
-        Send(PutS, HomeType, n, VC0, UNDEFINED, 0);
+        Send(PutS, HomeType, n, VC6, UNDEFINED, 0);
         p.state := SI_A;
       endif;
       if (p.state = P_Modified)
       then
-        Send(PutM, HomeType, n, VC0, p.val, 0);
+        Send(PutM, HomeType, n, VC6, p.val, 0);
         p.state := MI_A;
       endif;
       if (p.state = P_Exclusive)
       then
-        Send(PutE, HomeType, n, VC0, UNDEFINED, 0);
+        Send(PutE, HomeType, n, VC6, UNDEFINED, 0);
         p.state := EI_A;
       endif;
     endrule;
