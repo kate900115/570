@@ -538,9 +538,10 @@ Begin
 	case Fwd_Ack:
 	  HomeNode.state := H_Owned;
 	case PutE:
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	  HomeNode.state := H_MS_A;
-	  undefine HomeNode.owner;
+	  --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  --HomeNode.state := H_MS_A;
+	  --undefine HomeNode.owner;
+	  msg_processed := false;
 	case PutM:
 	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	  HomeNode.state := H_MS_A;
@@ -860,9 +861,9 @@ Begin
   case EI_A:
     switch msg.mtype
       case Fwd_GetS:
-        --Send(Data, msg.src, p, VC4, pv, 0);
-        --ps := OI_A;
-	msg_processed := false;
+        Send(Data, msg.src, p, VC4, pv, 0);
+        ps := OI_A;
+	--msg_processed := false;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
