@@ -426,7 +426,7 @@ Begin
       case GetM:
 	Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	SendInvReqToSharers(msg.src);
-	RemoveAllSharers();
+	--RemoveAllSharers();
 	HomeNode.owner:=msg.src;
 	HomeNode.state:=H_OM_A;
       case PutS:
@@ -511,7 +511,7 @@ Begin
 	  msg_processed := false;
 	  
 	case PutE:
-      msg_processed := false;
+          msg_processed := false;
 	  --Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	
 	case PutS:
@@ -519,31 +519,51 @@ Begin
 	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 		
 	case PutM:
-      if !(HomeNode.owner = msg.src)
-      then
-      	msg_processed := false;
+          if !(HomeNode.owner = msg.src)
+          then
+      	    msg_processed := false;
 	  	--RemoveFromSharersList(msg.src);
 	  	--Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    --else
 	    --ErrorUnhandledMsg(msg, HomeType);
 	  endif;
 
-    case Fwd_Ack:
-      -- doing nothing at all
+        case Fwd_Ack:
+          -- doing nothing at all
 	  
-    case Data:
-      HomeNode.val := msg.val;
-      if !(cnt=0)
-      then
-        HomeNode.state:= H_Shared;
-      else
-        HomeNode.state:= H_Invalid;
-      endif;
+        case Data:
+          HomeNode.val := msg.val;
+          if !(cnt=0)
+          then
+            HomeNode.state:= H_Shared;
+          else
+            HomeNode.state:= H_Invalid;
+          endif;
      
 	else
 	  ErrorUnhandledMsg(msg, HomeType);
 	  
-    endswitch;  
+    endswitch; 
+
+
+  case H_OM_A:
+    switch msg.mtype
+    case Inv_Ack:
+      if (cnt>0)
+      then
+        RemoveFromSharersList(msg.src);
+      endif;
+    case Fwd_Ack:
+      if (cnt=0)
+      then
+	HomeNode.state:= H_Modified;
+      else
+	msg_processed := false;
+      endif;
+    else
+      msg_processed := false;
+    endswitch;
+ 
   endswitch;
 End;
 
@@ -869,6 +889,8 @@ Begin
       case Fwd_GetS:
 	Send(Data, msg.src, p, VC4, pv, 0);
         pan := pan+1;
+      case Fwd_GetM:
+	msg_processed := false;
       case Put_Ack:
 	if (pan=0)
 	then
@@ -892,6 +914,7 @@ Begin
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
+      case Fwd_GetS:
         
     else
         ErrorUnhandledMsg(msg, p);
