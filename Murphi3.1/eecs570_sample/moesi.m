@@ -41,6 +41,7 @@ type
                        Invalidation,	-- vc1	
                        Data,			-- to indicate the message is data.      
                        ExcData,			-- Exclusive Data.
+		       NullData,
                                              
 					   PutS,            -- writeback the data in share state.    
 					   PutM,            -- writeback the data in modified state. 
@@ -589,7 +590,7 @@ Begin
       case Invalidation:
         Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
       case Fwd_GetS:
-	--doing nothing
+	Send(NullData, msg.src, p, VC4, pv, 0);
         
       else
          ErrorUnhandledMsg(msg, p);
@@ -686,7 +687,9 @@ Begin
   	    	ps := P_Shared;
   	    	pv := msg.val;
   	    endif;
-  	   
+          case NullData:
+	    Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
+  	    ps := P_Invalid;
   	  else
         ErrorUnhandledMsg(msg, p);
         
