@@ -719,7 +719,14 @@ Begin
  
         if !(msg.src = HomeType)
         then
-          ps := P_Modified;
+          pan:= msg.sharenum;
+	  if (pan=0)
+	  then
+	    ps := P_Modified;
+	  else
+	    ps := IM_A;
+	  endif;
+          
           pv := msg.val;
         endif;
       
