@@ -226,7 +226,7 @@ Begin
        	 Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
        endif;
 
-	case PutE:
+    case PutE:
       if !(HomeNode.owner = msg.src)
 	  then 
         Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
@@ -234,6 +234,7 @@ Begin
 
     case Fwd_Ack:
       --doing nothing at all
+    case Inv_Ack:
       
     else
       ErrorUnhandledMsg(msg, HomeType);
@@ -448,15 +449,16 @@ Begin
 	then
 	  HomeNode.state := H_OI_A;
 	  undefine HomeNode.owner;
-	  SendInvReqToSharers(HomeType);
+	  SendInvReqToSharers(msg.src);
 	endif;
       case PutM:
-	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
 	if (msg.src = HomeNode.owner)
 	then
+	  HomeNode.val := msg.val;
 	  HomeNode.state := H_OI_A;
 	  undefine HomeNode.owner;
-	  SendInvReqToSharers(HomeType);
+	  SendInvReqToSharers(msg.src);
 	endif;
       else
         ErrorUnhandledMsg(msg, HomeType);
@@ -588,6 +590,15 @@ Begin
     switch msg.mtype
     case GetS:
       msg_processed := false;
+    case Inv_Ack:
+      if (cnt>0)
+      then
+        RemoveFromSharersList(msg.src);
+      endif;
+      if (cnt=1)
+      then
+        HomeNode.state:=H_Invalid;
+      endif;
     else
 	  msg_processed := false;
       --ErrorUnhandledMsg(msg, HomeType);
@@ -617,6 +628,7 @@ Begin
         Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
       case Fwd_GetS:
 	Send(NullData, msg.src, p, VC4, pv, 0);
+      case Inv_Ack:
         
       else
          ErrorUnhandledMsg(msg, p);
@@ -661,6 +673,8 @@ Begin
         Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := P_Invalid;
         undefine pv;
+
+      --case Inv_Ack:
         
       else
         ErrorUnhandledMsg(msg, p);
@@ -721,6 +735,8 @@ Begin
           case NullData:
 	    Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
   	    ps := P_Invalid;
+	  case Inv_Ack:
+
   	  else
         ErrorUnhandledMsg(msg, p);
         
@@ -765,14 +781,11 @@ Begin
           pv := msg.val;
         endif;
      
-	  case FwdData:
-		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+      case FwdData:
+	Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
 
       case Inv_Ack:
-		-- pan := pan - 1; 
-		-- I believe there should be a stall
-		-- Instead of ack-- (in the textbook)
-		msg_processed := false;
+	msg_processed := false;
      
       else
         ErrorUnhandledMsg(msg, p);
@@ -914,7 +927,6 @@ Begin
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
         ps := OI_A;
-	pan := 1;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -922,13 +934,14 @@ Begin
         ps := II_A;
       
       case Put_Ack:
-		  ps:=P_Invalid;
-		  undefine pv;
+	ps:=P_Invalid;
+	undefine pv;
 
       case Put_Ack_S:
-		  msg_processed:=false;
-	  case Fwd_Ack:
-		  pan:=pan-1;
+	msg_processed:=false;
+
+      case Fwd_Ack:
+	pan:=pan-1;
       
       else
         ErrorUnhandledMsg(msg, p);
@@ -952,30 +965,33 @@ Begin
         
     endswitch;  
 
-  case OI_A: --Exclusive state + Fwd_GetM
+  case OI_A: --Exclusive/Modified state + Fwd_GetM
     switch msg.mtype
       case Fwd_GetS:
-	    Send(Data, msg.src, p, VC4, pv, 0);
-        pan := pan+1;
+	Send(Data, msg.src, p, VC4, pv, 0);
+
       case Fwd_GetM:
-		Send(FwdData, msg.src, p, VC4, pv, 0);
-	    --msg_processed := false;
+	Send(FwdData, msg.src, p, VC4, pv, 0);
+
       case Put_Ack:
-	   -- if (pan=0)
-	    --then
           ps := P_Invalid;
           undefine pv;
-       -- else
-        --  msg_processed := false;
-        --endif;
+
       case Inv_Ack:
-	    if (pan>0)
+	if (pan>1)
         then
-	      pan := pan-1;
+	  pan := pan-1;
         endif;
+	if (pan=1)
+	then
+	  ps := P_Invalid;
+	  undefine pv;
+	  pan := 0;
+	endif;
+
       case Put_Ack_S:
-		ps:=P_Invalid;
-		undefine pv;
+	pan := msg.sharenum;
+
       else
         ErrorUnhandledMsg(msg, p);
     endswitch;  
@@ -986,9 +1002,11 @@ Begin
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
-	  case Put_Ack_S:
-	    ps :=P_Invalid;
-		undefine pv;
+
+      case Put_Ack_S:
+	ps :=P_Invalid;
+	undefine pv;
+
       case Fwd_GetS:
         
     else
