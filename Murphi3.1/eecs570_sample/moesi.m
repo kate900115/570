@@ -428,9 +428,10 @@ Begin
 	    Send(Fwd_GetS, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    AddToSharersList(msg.src);
       case GetM:
+	    RemoveFromSharersList(msg.src);
 	    Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    SendInvReqToSharers(msg.src);
-	--RemoveAllSharers();
+	    --RemoveAllSharers();
 	    HomeNode.owner:=msg.src;
 	    HomeNode.state:=H_OM_A;
       case PutS:
@@ -833,6 +834,19 @@ Begin
         endif;
 
 	  case FwdData:
+		if (msg.sharenum=0)
+		then
+		  ps := P_Modified;
+		  pv := msg.val;
+		  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED, 0);
+	    endif;
+		if (msg.sharenum>0)
+		then
+		  ps:= SM_A;
+		  pan:=msg.sharenum;
+		  pv:=msg.val;
+		  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
+		endif;
 		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         
         if !(msg.src = HomeType)
@@ -936,7 +950,7 @@ Begin
         
     endswitch;  
 
-  case OI_A:
+  case OI_A: --Exclusive state + Fwd_GetM
     switch msg.mtype
       case Fwd_GetS:
 	    Send(Data, msg.src, p, VC4, pv, 0);
@@ -945,13 +959,13 @@ Begin
 		Send(FwdData, msg.src, p, VC4, pv, 0);
 	    --msg_processed := false;
       case Put_Ack:
-	    if (pan=0)
-	    then
+	   -- if (pan=0)
+	    --then
           ps := P_Invalid;
           undefine pv;
-        else
-          msg_processed := false;
-        endif;
+       -- else
+        --  msg_processed := false;
+        --endif;
       case Inv_Ack:
 	    if (pan>0)
         then
@@ -960,10 +974,10 @@ Begin
       case Put_Ack_S:
 		ps:=P_Invalid;
 		undefine pv;
-	  else
+      else
         ErrorUnhandledMsg(msg, p);
-	  undefine pv;
     endswitch;  
+
     
   case II_A:
     switch msg.mtype
