@@ -831,29 +831,31 @@ Begin
             pv := msg.val;
             Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
           endif;
+
+          if !(msg.src = HomeType)
+          then
+            ps := P_Modified;
+            pv := msg.val;
+          endif;
         endif;
 
-	  case FwdData:
-		if (msg.sharenum=0)
-		then
-		  ps := P_Modified;
-		  pv := msg.val;
-		  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED, 0);
-	    endif;
-		if (msg.sharenum>0)
-		then
-		  ps:= SM_A;
-		  pan:=msg.sharenum;
-		  pv:=msg.val;
-		  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
-		endif;
-		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+      case FwdData:
+	if (msg.sharenum=0)
+	then
+	  ps := P_Modified;
+	  pv := msg.val;
+	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED, 0);
+	endif;
+	if (msg.sharenum>0)
+	then
+	  ps:= SM_A;
+	  pan:=msg.sharenum;
+	  pv:=msg.val;
+	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
+	endif;
+	Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         
-        if !(msg.src = HomeType)
-        then
-          ps := P_Modified;
-          pv := msg.val;
-        endif;
+        
         
       case Inv_Ack:
         -- pan := pan - 1; 
