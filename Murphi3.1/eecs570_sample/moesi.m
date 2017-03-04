@@ -452,7 +452,14 @@ Begin
 	  SendInvReqToSharers(msg.src);
 	endif;
       case PutM:
-	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	if (cnt>0)
+	then
+	  Send(Put_Ack_S, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	endif;
+	if (cnt = 0)
+	then
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	endif;
 	if (msg.src = HomeNode.owner)
 	then
 	  HomeNode.val := msg.val;
