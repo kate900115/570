@@ -69,7 +69,7 @@ type
   HomeState:
     Record
       state: enum { H_Invalid, H_Modified, H_Shared, H_Exclusive, H_Owned,	--stable states
-      		    H_SM_A, H_MS_D, H_EM_A, H_MM_A, H_OI_A, H_OM_A, H_MO_A }; 		--transient states during recall
+      		    H_SM_A, H_MS_D, H_EM_A, H_MM_A, H_OI_A, H_OM_A, H_MO_A, H_OO_A }; 		--transient states during recall
       owner: Node;	
       sharers: multiset [ProcCount] of Node;    						
       val: Value; 
@@ -428,6 +428,7 @@ Begin
       case GetS:
 	    Send(Fwd_GetS, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    AddToSharersList(msg.src);
+	    HomeNode.state:=H_OO_A;
       case GetM:
 	    if (IsSharer(msg.src))
 	    then
@@ -609,6 +610,15 @@ Begin
 	endswitch;
 
 
+  case H_OO_A:
+    switch msg.mtype
+    case Fwd_Ack:
+	HomeNode.state:= H_Owned;
+    else
+      msg_processed := false;
+    endswitch;
+
+
   case H_OI_A:
     switch msg.mtype
     case GetS:
@@ -707,7 +717,7 @@ Begin
   case P_Owned:
     switch msg.mtype
       case Fwd_GetS:
-        Send(Data, msg.src, p, VC4, pv, 0);
+        Send(FwdData, msg.src, p, VC4, pv, 0);
         
       case Fwd_GetM:
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
@@ -715,6 +725,9 @@ Begin
         --ps := P_Invalid;
 	ps := OI_A;
         undefine pv;
+
+      case Fwd_Ack:
+
       else
         ErrorUnhandledMsg(msg, p);
     endswitch;
@@ -1001,7 +1014,7 @@ Begin
   case OI_A_WaitForPutAck: --EI_A/MI_A + Fwd_GetM
     switch msg.mtype
       case Fwd_GetS:
-	Send(Data, msg.src, p, VC4, pv, 0);
+	Send(FwdData, msg.src, p, VC4, pv, 0);
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
