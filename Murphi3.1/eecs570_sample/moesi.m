@@ -439,12 +439,17 @@ Begin
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    RemoveFromSharersList(msg.src);
       case PutE:
-		if (cnt=0)
-	    then		
-	      Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-		else
-		  Send(Put_Ack_S, msg.src, HomeType, VC1, UNDEFINED, cnt);
-		endif;
+	if (cnt=0)
+	then		
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  if (msg.src=HomeNode.owner)
+	  then
+	    HomeNode.state := H_Invalid;
+            undefine HomeNode.owner;
+	  endif;
+	else
+	  Send(Put_Ack_S, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	endif;
 	if (msg.src = HomeNode.owner)
 	then
 	  HomeNode.state := H_OI_A;
