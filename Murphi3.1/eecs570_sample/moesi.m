@@ -614,6 +614,12 @@ Begin
     switch msg.mtype
     case Fwd_Ack:
 	HomeNode.state:= H_Owned;
+    case PutS:
+	if (IsSharer(msg.src))
+	then
+	  RemoveFromSharersList(msg.src);
+	endif;
+	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
     else
       msg_processed := false;
     endswitch;
