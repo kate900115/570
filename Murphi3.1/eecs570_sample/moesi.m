@@ -925,8 +925,9 @@ Begin
 	  pan:=msg.sharenum;
 	  pv:=msg.val;
 	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
+	  Send(Fwd_Ack, msg.src, p, VC5, UNDEFINED, 0);
 	endif;
-	--Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	--
         
         
         
