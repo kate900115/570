@@ -78,7 +78,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,			--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A, II_A, OI_A_WaitForPutAck			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A			--transient states
                   };
       val: Value;
       AckNum: AckCnt;
@@ -723,7 +723,7 @@ Begin
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
         --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         --ps := P_Invalid;
-	ps := OI_A;
+	ps := OI_A_WaitForFwdAck;
         undefine pv;
 
       case Fwd_Ack:
@@ -822,11 +822,19 @@ Begin
         endif;
      
       case FwdData:
-	pan:=msg.sharenum;
-	Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
-	Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
-	pv :=msg.val;
-	ps :=IM_A;
+	if (msg.sharenum>0)
+	then
+	  pan:=msg.sharenum;
+	  Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	  Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+	  pv :=msg.val;
+	  ps :=IM_A;
+	else
+	  pv :=msg.val;
+	  ps :=P_Modified;
+	  Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	  Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+	endif;
 
       case Inv_Ack:
 	msg_processed := false;
@@ -1018,6 +1026,7 @@ Begin
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	ps := OI_A;
 
       case Put_Ack:
           ps := P_Invalid;
@@ -1046,7 +1055,7 @@ Begin
         ErrorUnhandledMsg(msg, p);
     endswitch;  
 
-    case OI_A:     --O + GetM
+    case OI_A_WaitForFwdAck:     --O + GetM
     switch msg.mtype
       case Fwd_GetS:
 	Send(Data, msg.src, p, VC4, pv, 0);
@@ -1080,6 +1089,42 @@ Begin
       else
         ErrorUnhandledMsg(msg, p);
     endswitch;  
+
+  case OI_A: --wait for both Put_Ack and Fwd_Ack
+  switch msg.mtype
+      case Fwd_GetS:
+	Send(Data, msg.src, p, VC4, pv, 0);
+
+      case Fwd_GetM:
+	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+
+      case Put_Ack:
+          ps := OI_A_WaitForFwdAck;
+          undefine pv;
+
+      case Inv_Ack:
+	if (pan>1)
+        then
+	  pan := pan-1;
+        endif;
+	if (pan=1)
+	then
+	  ps := P_Invalid;
+	  undefine pv;
+	  pan := 0;
+	endif;
+
+      case Put_Ack_S:
+	pan := msg.sharenum;
+
+      case Fwd_Ack:
+	ps:= OI_A_WaitForPutAck;
+	--undefine pv;
+
+      else
+        ErrorUnhandledMsg(msg, p);
+    endswitch;  
+
 
     
   case II_A:
