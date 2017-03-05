@@ -711,7 +711,8 @@ Begin
       case Fwd_GetM:
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
         --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
-        ps := P_Invalid;
+        --ps := P_Invalid;
+	ps := OI_A;
         undefine pv;
       else
         ErrorUnhandledMsg(msg, p);
@@ -805,7 +806,11 @@ Begin
         endif;
      
       case FwdData:
+	pan:=msg.sharenum;
 	Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+	pv :=msg.val;
+	ps :=IM_A;
 
       case Inv_Ack:
 	msg_processed := false;
@@ -988,7 +993,7 @@ Begin
         
     endswitch;  
 
-  case OI_A: --Exclusive/Modified state + Fwd_GetM
+  case OI_A: --EI_A/MI_A + Fwd_GetM
     switch msg.mtype
       case Fwd_GetS:
 	Send(Data, msg.src, p, VC4, pv, 0);
@@ -1014,6 +1019,10 @@ Begin
 
       case Put_Ack_S:
 	pan := msg.sharenum;
+
+      case Fwd_Ack:
+	ps:= P_Invalid;
+	undefine pv;
 
       else
         ErrorUnhandledMsg(msg, p);
