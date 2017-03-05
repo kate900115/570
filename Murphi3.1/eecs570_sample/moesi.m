@@ -437,7 +437,6 @@ Begin
 	    
 	    Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    SendInvReqToSharers(msg.src);
-	    --RemoveAllSharers();
 	    HomeNode.owner:=msg.src;
 	    HomeNode.state:=H_OM_A;
       case PutS:
@@ -465,18 +464,25 @@ Begin
 	if (cnt>0)
 	then
 	  Send(Put_Ack_S, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	  if (msg.src = HomeNode.owner)
+	  then
+	    HomeNode.val := msg.val;
+	    HomeNode.state := H_OI_A;
+	    undefine HomeNode.owner;
+	    SendInvReqToSharers(msg.src);
+	  endif;
 	endif;
 	if (cnt = 0)
 	then
-	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	  Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+ 	  if (msg.src = HomeNode.owner)
+	  then
+	    HomeNode.val := msg.val;
+	    HomeNode.state := H_Invalid;
+	    undefine HomeNode.owner;
+	  endif;
 	endif;
-	if (msg.src = HomeNode.owner)
-	then
-	  HomeNode.val := msg.val;
-	  HomeNode.state := H_OI_A;
-	  undefine HomeNode.owner;
-	  SendInvReqToSharers(msg.src);
-	endif;
+	
       else
         ErrorUnhandledMsg(msg, HomeType);
 
@@ -883,7 +889,7 @@ Begin
 	  pv:=msg.val;
 	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
 	endif;
-	Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	--Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         
         
         
