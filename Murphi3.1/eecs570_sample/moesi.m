@@ -429,7 +429,12 @@ Begin
 	    Send(Fwd_GetS, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    AddToSharersList(msg.src);
       case GetM:
-	    RemoveFromSharersList(msg.src);
+	    if (IsSharer(msg.src))
+	    then
+	      RemoveFromSharersList(msg.src);
+	      cnt := cnt-1;
+	    endif;
+	    
 	    Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, cnt);
 	    SendInvReqToSharers(msg.src);
 	    --RemoveAllSharers();
@@ -983,7 +988,7 @@ Begin
 	Send(Data, msg.src, p, VC4, pv, 0);
 
       case Fwd_GetM:
-	Send(FwdData, msg.src, p, VC4, pv, 0);
+	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
 
       case Put_Ack:
           ps := P_Invalid;
