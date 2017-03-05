@@ -336,7 +336,7 @@ Begin
 		HomeNode.state := H_MO_A;
 
 	  case GetM:
-		Send(Fwd_GetM, HomeNode.owner, msg.src, VC1, UNDEFINED, 0);
+		Send(Fwd_GetM, HomeNode.owner, msg.src, VC3, UNDEFINED, 0);-----------------------
 		HomeNode.owner := msg.src;
 		HomeNode.state := H_EM_A;
 	 
@@ -663,7 +663,7 @@ Begin
 	  case Invalidation:
 		 ps := P_Invalid;
 		 undefine pv;
-		 Send(Inv_Ack, msg.src, p, VC3, UNDEFINED, 0);
+		 Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
 		 Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
 
       else
@@ -855,7 +855,7 @@ Begin
         msg_processed := false;
         
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC3, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
         ps := IM_AD;
         
@@ -985,7 +985,7 @@ Begin
   case SI_A:
     switch msg.mtype
       case Invalidation:
-        Send(Inv_Ack, msg.src, p, VC3, UNDEFINED, 0);
+        Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
         Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
         ps := II_A;
       
