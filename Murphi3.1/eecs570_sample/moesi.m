@@ -749,6 +749,7 @@ Begin
 	endif;
 
       case Fwd_Ack:
+	fan:=fan-1;
 
       else
         ErrorUnhandledMsg(msg, p);
