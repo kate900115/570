@@ -983,9 +983,14 @@ Begin
   case MI_A:
     switch msg.mtype
       case Fwd_GetS:
-        Send(FwdData, msg.src, p, VC4, pv, 0);
-	fan:=fan+1;
-        ps := OI_A;
+        if (fan<ProcCount)
+	then
+          Send(FwdData, msg.src, p, VC4, pv, 0);
+	  fan:=fan+1;
+          ps := OI_A;
+	else
+	  msg_processed:=false;
+	endif;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -1004,9 +1009,14 @@ Begin
   case EI_A:
     switch msg.mtype
       case Fwd_GetS:
-        Send(FwdData, msg.src, p, VC4, pv, 0);
-        fan:= fan+1;
-        ps := OI_A;
+	if (fan<ProcCount)
+	then
+          Send(FwdData, msg.src, p, VC4, pv, 0);
+          fan:= fan+1;
+          ps := OI_A;
+	else
+	  msg_processed:=false;
+	endif;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -1048,9 +1058,14 @@ Begin
   case OI_A_WaitForPutAck: --EI_A/MI_A + Fwd_GetM
     switch msg.mtype
       case Fwd_GetS:
-	Send(FwdData, msg.src, p, VC4, pv, 0);
-	ps := OI_A;
-        fan := fan+1;
+	if (fan<ProcCount)
+	then
+	  Send(FwdData, msg.src, p, VC4, pv, 0);
+	  ps := OI_A;
+          fan := fan+1;
+	else
+	  msg_processed := false;
+	endif;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
@@ -1098,8 +1113,13 @@ Begin
     case OI_A_WaitForFwdAck:     --O + GetM
     switch msg.mtype
       case Fwd_GetS:
-	Send(FwdData, msg.src, p, VC4, pv, 0);
-        fan:= fan+1;
+	if (fan<ProcCount)
+	then
+	  Send(FwdData, msg.src, p, VC4, pv, 0);
+          fan:= fan+1;
+	else
+	  msg_processed := false;
+	endif;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
@@ -1110,16 +1130,17 @@ Begin
           undefine pv;
 
       case Inv_Ack:
-	if (pan>1)
-        then
-	  pan := pan-1;
-        endif;
 	if (pan=1)
 	then
 	  --ps := P_Invalid;
 	  --undefine pv;
 	  pan := 0;
 	endif;
+	if (pan>1)
+        then
+	  pan := pan-1;
+        endif;
+	
 
       case Put_Ack_S:
 	pan := msg.sharenum;
@@ -1146,8 +1167,13 @@ Begin
   case OI_A: --wait for both Put_Ack and Fwd_Ack
   switch msg.mtype
       case Fwd_GetS:
-	Send(FwdData, msg.src, p, VC4, pv, 0);
-	fan:=fan+1;
+	if (fan<ProcCount)
+	then
+	  Send(FwdData, msg.src, p, VC4, pv, 0);
+	  fan:=fan+1;
+	else
+	  msg_processed := false;
+	endif;
 
       case Fwd_GetM:
 	if (fan=0)
