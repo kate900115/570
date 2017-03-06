@@ -30,7 +30,8 @@ type
   VCType: VC0..NumVCs-1;
   
   ShareCnt: 0..ProcCount; 
-  AckCnt: 0..ProcCount; 
+  InvAckCnt: 0..ProcCount; 
+  FwdAckCnt: 0..ProcCount; 
 
   MessageType: enum {  GetS,            -- request for data . 
                        GetM,            -- request for data, and will modified that data.
@@ -81,7 +82,8 @@ type
                   IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A			--transient states
                   };
       val: Value;
-      AckNum: AckCnt;
+      InvAckNum: InvAckCnt;
+      FwdAckNum: FwdAckCnt;
     End;
 
 ----------------------------------------------------------------------
@@ -658,7 +660,8 @@ Begin
 
   alias ps:Procs[p].state do
   alias pv:Procs[p].val do
-  alias pan:Procs[p].AckNum do  
+  alias pan:Procs[p].InvAckNum do  
+  alias fan:Procs[p].FwdAckNum do
   
   switch ps
   case P_Invalid:
@@ -690,6 +693,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:=fan+1;
         ps := P_Owned;
         
       case Fwd_GetM:
@@ -706,6 +710,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:= fan+1;
         ps := P_Owned;
         
       case Fwd_GetM:
@@ -713,8 +718,6 @@ Begin
         Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         ps := P_Invalid;
         undefine pv;
-
-      --case Inv_Ack:
         
       else
         ErrorUnhandledMsg(msg, p);
@@ -724,11 +727,13 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:=fan+1;
         
       case Fwd_GetM:
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
         --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
         --ps := P_Invalid;
+	fan:=fan+1;
 	ps := OI_A_WaitForFwdAck;
         undefine pv;
 
@@ -968,6 +973,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:=fan+1;
         ps := OI_A;
         
       case Fwd_GetM:
@@ -988,6 +994,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
+        fan:= fan+1;
         ps := OI_A;
       
       case Fwd_GetM:
@@ -1003,7 +1010,7 @@ Begin
 	msg_processed:=false;
 
       case Fwd_Ack:
-	pan:=pan-1;
+	fan:=fan-1;
       
       else
         ErrorUnhandledMsg(msg, p);
@@ -1032,14 +1039,21 @@ Begin
       case Fwd_GetS:
 	Send(FwdData, msg.src, p, VC4, pv, 0);
 	ps := OI_A;
+        fan := fan+1;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	fan:= 1;
 	ps := OI_A;
 
       case Put_Ack:
-          ps := P_Invalid;
-          undefine pv;
+	  if (pan=0)
+	  then
+            ps := P_Invalid;
+            undefine pv;
+	  else
+	    msg_processed := false;
+	  endif;
 
       case Inv_Ack:
 	if (pan>1)
@@ -1048,13 +1062,19 @@ Begin
         endif;
 	if (pan=1)
 	then
-	  ps := P_Invalid;
-	  undefine pv;
+	  --ps := P_Invalid;
+	  --undefine pv;
 	  pan := 0;
 	endif;
 
       case Put_Ack_S:
-	pan := msg.sharenum;
+	
+	if (pan=0)
+	then
+            pan := msg.sharenum;
+	else
+	    msg_processed := false;
+	endif;
 
       case Fwd_Ack:
 	ps:= II_A;
@@ -1067,10 +1087,12 @@ Begin
     case OI_A_WaitForFwdAck:     --O + GetM
     switch msg.mtype
       case Fwd_GetS:
-	Send(Data, msg.src, p, VC4, pv, 0);
+	Send(FwdData, msg.src, p, VC4, pv, 0);
+        fan:= fan+1;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	fan:=1;
 
       case Put_Ack:
           ps := P_Invalid;
@@ -1083,8 +1105,8 @@ Begin
         endif;
 	if (pan=1)
 	then
-	  ps := P_Invalid;
-	  undefine pv;
+	  --ps := P_Invalid;
+	  --undefine pv;
 	  pan := 0;
 	endif;
 
@@ -1092,7 +1114,18 @@ Begin
 	pan := msg.sharenum;
 
       case Fwd_Ack:
-	ps:= P_Invalid;
+	
+	if (pan=0)
+	then
+	  fan:=fan-1;
+	  if (fan=0)
+	  then
+	    ps:= P_Invalid;
+	  endif;
+	else
+	  msg_processed := false;
+	endif;
+	
 	--undefine pv;
 
       else
@@ -1103,9 +1136,11 @@ Begin
   switch msg.mtype
       case Fwd_GetS:
 	Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:=fan+1;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	fan:=1
 
       case Put_Ack:
           ps := OI_A_WaitForFwdAck;
@@ -1118,8 +1153,8 @@ Begin
         endif;
 	if (pan=1)
 	then
-	  ps := P_Invalid;
-	  undefine pv;
+	  --ps := P_Invalid;
+	  --undefine pv;
 	  pan := 0;
 	endif;
 
@@ -1129,7 +1164,11 @@ Begin
 	undefine pv;
 
       case Fwd_Ack:
-	ps:= OI_A_WaitForPutAck;
+	fan:=fan-1;
+	if (fan=0)
+	then
+	  ps:= OI_A_WaitForPutAck;
+	endif;
 	--undefine pv;
 
       else
@@ -1157,6 +1196,7 @@ Begin
     endswitch;   
   endswitch;
 
+  endalias;
   endalias;
   endalias;
   endalias;
@@ -1306,7 +1346,8 @@ startstate
   for i:Proc do
     Procs[i].state := P_Invalid;
     undefine Procs[i].val;
-    Procs[i].AckNum := 0;
+    Procs[i].InvAckNum := 0;
+    Procs[i].FwdAckNum := 0;
   endfor;
 
   -- network initialization
