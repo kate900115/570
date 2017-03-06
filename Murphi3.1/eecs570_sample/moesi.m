@@ -727,16 +727,26 @@ Begin
   case P_Owned:
     switch msg.mtype
       case Fwd_GetS:
-        Send(FwdData, msg.src, p, VC4, pv, 0);
-	fan:=fan+1;
+	if (fan<ProcCount)
+	then
+	  Send(FwdData, msg.src, p, VC4, pv, 0);
+	  fan:=fan+1;
+	else
+	  msg_processed := false;
+	endif;
         
       case Fwd_GetM:
+	if (fan<ProcCount)
+	then
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
         --Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
         --ps := P_Invalid;
 	fan:=fan+1;
 	ps := OI_A_WaitForFwdAck;
         undefine pv;
+	else
+	  msg_processed := false;
+	endif;
 
       case Fwd_Ack:
 
