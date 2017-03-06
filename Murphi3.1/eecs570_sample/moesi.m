@@ -757,6 +757,7 @@ Begin
 		ps := P_Shared;
 		pv := msg.val;
 		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+	        Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
   	    
   	  case Data:
   	    if (msg.src = HomeType)
@@ -927,7 +928,7 @@ Begin
 	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
 	  Send(Fwd_Ack, msg.src, p, VC5, UNDEFINED, 0);
 	endif;
-	--
+	
         
         
         
@@ -967,7 +968,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
-        ps := OI_A_WaitForPutAck;
+        ps := OI_A;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -987,7 +988,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
-        ps := OI_A_WaitForPutAck;
+        ps := OI_A;
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -1030,6 +1031,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
 	Send(FwdData, msg.src, p, VC4, pv, 0);
+	ps := OI_A;
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
@@ -1100,7 +1102,7 @@ Begin
   case OI_A: --wait for both Put_Ack and Fwd_Ack
   switch msg.mtype
       case Fwd_GetS:
-	Send(Data, msg.src, p, VC4, pv, 0);
+	Send(FwdData, msg.src, p, VC4, pv, 0);
 
       case Fwd_GetM:
 	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
@@ -1143,6 +1145,7 @@ Begin
       case Put_Ack_S:
 	ps :=P_Invalid;
 	undefine pv;
+      --case Inv_Ack:
 
       case Fwd_GetS:
         
