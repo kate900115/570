@@ -13,8 +13,9 @@ const
   VC4: 4;
   VC5: 5;
   VC6: 6;
+  VC7: 7;
   QMax: 2;
-  NumVCs: VC6 - VC0 + 1;
+  NumVCs: VC7 - VC0 + 1;
   NetMax: 2*ProcCount+1;
   
 
@@ -698,7 +699,7 @@ Begin
         
       case Fwd_GetM:
       	Send(Data, msg.src, p, VC4, pv, msg.sharenum);
-        Send(Fwd_Ack, HomeType, p, VC4, UNDEFINED, 0);
+        Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
       	ps := P_Invalid;
       	undefine pv;
 		  
@@ -715,7 +716,7 @@ Begin
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
-        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+        Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
         ps := P_Invalid;
         undefine pv;
         
@@ -731,7 +732,7 @@ Begin
         
       case Fwd_GetM:
         Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
-        --Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+        --Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
         --ps := P_Invalid;
 	fan:=fan+1;
 	ps := OI_A_WaitForFwdAck;
@@ -761,8 +762,8 @@ Begin
 	  case FwdData:
 		ps := P_Shared;
 		pv := msg.val;
-		Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
-	        Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+		Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	        Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
   	    
   	  case Data:
   	    if (msg.src = HomeType)
@@ -837,15 +838,15 @@ Begin
 	if (msg.sharenum>0)
 	then
 	  pan:=msg.sharenum;
-	  Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
-	  Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
 	  pv :=msg.val;
 	  ps :=IM_A;
 	else
 	  pv :=msg.val;
 	  ps :=P_Modified;
-	  Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
-	  Send(Fwd_Ack, msg.src, p, VC3, UNDEFINED, 0);
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
 	endif;
 
       case Inv_Ack:
@@ -923,15 +924,15 @@ Begin
 	then
 	  ps := P_Modified;
 	  pv := msg.val;
-	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED, 0);
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
 	endif;
 	if (msg.sharenum>0)
 	then
 	  ps:= SM_A;
 	  pan:=msg.sharenum;
 	  pv:=msg.val;
-	  Send(Fwd_Ack, HomeType, p, VC5, UNDEFINED,0);
-	  Send(Fwd_Ack, msg.src, p, VC5, UNDEFINED, 0);
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED,0);
+	  Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
 	endif;
 	
         
@@ -978,7 +979,7 @@ Begin
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
-        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+        Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
         ps := II_A;
         
       case Put_Ack:
@@ -999,7 +1000,7 @@ Begin
       
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
-        Send(Fwd_Ack, HomeType, p, VC3, UNDEFINED, 0);
+        Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
         ps := II_A;
       
       case Put_Ack:
@@ -1139,8 +1140,13 @@ Begin
 	fan:=fan+1;
 
       case Fwd_GetM:
-	Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
-	fan:=1
+	if (fan=0)
+	then
+	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	  fan:=1
+	else
+	  msg_processed := false;
+	endif;
 
       case Put_Ack:
           ps := OI_A_WaitForFwdAck;
