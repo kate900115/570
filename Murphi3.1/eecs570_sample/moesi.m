@@ -1125,6 +1125,8 @@ Begin
 
       case Put_Ack_S:
 	pan := msg.sharenum;
+	ps:= OI_A_WaitForFwdAck;
+	undefine pv;
 
       case Fwd_Ack:
 	ps:= OI_A_WaitForPutAck;
