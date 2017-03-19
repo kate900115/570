@@ -55,7 +55,8 @@ type
                        Inv_Ack, 		    -- respond from other proc to indicate the block is invalidated.
                        Fwd_Ack,
 			Put_Ack_S,
-			GetM_Ack
+			GetM_Ack,
+	 		OwnedData
                     };
 
   Message:
@@ -880,6 +881,20 @@ Begin
 	  Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
 	endif;
 
+
+      case OwnedData:
+	if (msg.sharenum>0)
+	then
+	  pan:=msg.sharenum;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  pv :=msg.val;
+	  ps :=IM_A;
+	else
+	  pv :=msg.val;
+	  ps :=P_Modified;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	endif;
+
       case Inv_Ack:
 	msg_processed := false;
 
@@ -948,7 +963,7 @@ Begin
 	--then
 	--  Send(FwdData, msg.src, p, VC4, pv, 0);
 	--else
-	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	  Send(OwnedData, msg.src, p, VC4, pv, msg.sharenum);
 	  --ps := IM_AD_WaitForGetMAck;
 	  ps := IM_AD;
 	--endif;
@@ -1064,7 +1079,18 @@ Begin
 	endif;
 	
         
-        
+      case OwnedData:
+	if (msg.sharenum>0)
+	then
+	  pan:=msg.sharenum;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  pv :=msg.val;
+	  ps :=IM_A;
+	else
+	  pv :=msg.val;
+	  ps :=P_Modified;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	endif;
         
       case Inv_Ack:
         -- pan := pan - 1; 
@@ -1351,6 +1377,7 @@ Begin
       --case Inv_Ack:
 
       case Fwd_GetS:
+      case Fwd_Ack:
         
     else
         ErrorUnhandledMsg(msg, p);
