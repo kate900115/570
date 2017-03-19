@@ -604,9 +604,12 @@ Begin
   case H_OM_A:
     switch msg.mtype
     case Inv_Ack:
-      if (cnt>0)
+      if (cnt>1)
       then
         RemoveFromSharersList(msg.src);
+      else 
+	RemoveFromSharersList(msg.src);
+	--HomeNode.state:= H_Modified;
       endif;
     case Fwd_Ack:
       if (cnt=0)
@@ -969,17 +972,11 @@ Begin
       case Fwd_GetS:
 	Send(OwnedData, msg.src, p, VC4, pv, 0);
 	fan:=fan+1;
-	--msg_processed := false;
+
       case Fwd_GetM:
-	--if (msg.sharenum=0)
-	--then
-	--  Send(FwdData, msg.src, p, VC4, pv, 0);
-	--else
 	  Send(OwnedData, msg.src, p, VC4, pv, msg.sharenum);
-	  --ps := IM_AD_WaitForGetMAck;
 	  ps := IM_AD;
-	--endif;
-	--msg_processed := false;
+
       case GetM_Ack:
 	if (msg.sharenum=0)
 	then
