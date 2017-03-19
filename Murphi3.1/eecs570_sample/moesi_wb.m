@@ -377,6 +377,12 @@ Begin
               Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    endif;
 
+	  case PutO:
+            if !(HomeNode.owner=msg.src)
+            then
+              Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+            endif;
+
           case Fwd_Ack:
         	--doing nothing at all
 
@@ -414,6 +420,12 @@ Begin
 	HomeNode.val   := msg.val;
 	undefine HomeNode.owner;
 	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+      endif;
+    
+    case PutO:
+      if !(HomeNode.owner=msg.src)
+      then
+        Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
       endif;
 
     case Fwd_Ack:
