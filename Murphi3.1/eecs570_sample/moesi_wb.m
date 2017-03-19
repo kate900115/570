@@ -1663,3 +1663,12 @@ invariant "the value of Processor in exclusive state should be the same as Memor
     ->
      Procs[n].val = HomeNode.val
   end;
+
+
+-- for MOESI
+invariant "values in owned state match last write"
+  Forall n : Proc Do	
+     Procs[n].state = P_Owned
+    ->
+	Procs[n].val = LastWrite --LastWrite is updated whenever a new value is created 
+     end;
