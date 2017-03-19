@@ -971,7 +971,7 @@ Begin
     switch msg.mtype
       case Fwd_GetS:
 	Send(OwnedData, msg.src, p, VC4, pv, 0);
-	fan:=fan+1;
+	--fan:=fan+1;
 
       case Fwd_GetM:
 	  Send(OwnedData, msg.src, p, VC4, pv, msg.sharenum);
