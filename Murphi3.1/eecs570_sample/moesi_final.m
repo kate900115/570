@@ -796,6 +796,18 @@ Begin
 		pv := msg.val;
 		Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
 	        Send(Fwd_Ack, msg.src, p, VC7, UNDEFINED, 0);
+	case OwnedData:
+	  --if (msg.sharenum>0)
+	  --then
+	  --  pan:=msg.sharenum;
+	  --  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  --  pv :=msg.val;
+	   -- ps :=P_Shared;
+	  --else
+	    pv :=msg.val;
+	    ps :=P_Shared;
+	    Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	  --endif;
   	    
   	  case Data:
   	    if (msg.src = HomeType)
@@ -955,7 +967,7 @@ Begin
   case OM_A_WaitForGetMAck:
     switch msg.mtype
       case Fwd_GetS:
-	Send(FwdData, msg.src, p, VC4, pv, 0);
+	Send(OwnedData, msg.src, p, VC4, pv, 0);
 	fan:=fan+1;
 	--msg_processed := false;
       case Fwd_GetM:
