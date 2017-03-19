@@ -14,8 +14,9 @@ const
   VC5: 5;
   VC6: 6;
   VC7: 7;
+  VC8: 8;
   QMax: 2;
-  NumVCs: VC7 - VC0 + 1;
+  NumVCs: VC8 - VC0 + 1;
   NetMax: 2*ProcCount+1;
   
 
@@ -82,7 +83,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,			--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A, OI_A_WaitForGetMAck			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A,IM_AD_WaitForGetMAck, OI_A_WaitForGetMAck			--transient states
                   };
       val: Value;
       InvAckNum: InvAckCnt;
@@ -948,8 +949,10 @@ Begin
 	--  Send(FwdData, msg.src, p, VC4, pv, 0);
 	--else
 	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
-	  ps := OI_A_WaitForGetMAck;
+	  --ps := IM_AD_WaitForGetMAck;
+	  ps := IM_AD;
 	--endif;
+	--msg_processed := false;
       case GetM_Ack:
 	if (msg.sharenum=0)
 	then
@@ -976,35 +979,21 @@ Begin
 	
     endswitch;
 
-  case OI_A_WaitForGetMAck:
+  case IM_AD_WaitForGetMAck:
     switch msg.mtype
       case GetM_Ack:
 	if (msg.sharenum=0)
 	then
-	  ps :=P_Invalid;
+	  ps :=IM_AD;
 	  undefine pv;
 	else
 	  pan := msg.sharenum; 
 	endif;
-	
+	--msg_processed := false;
+      case Data:
+	msg_processed := false;
     endswitch;
 
-
---  case OM_A_WaitForInvAck:
---    switch msg.mtype
---      case Fwd_GetS:
---	Send(FwdData, msg.src, p, VC4, pv, 0);
---	fan:=fan+1;
---     case Fwd_GetM:
---	if (msg.sharenum=0)
---	then
---	  Send(FwdData, msg.src, p, VC4, pv, 0);
---	else
---	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
---	  ps := OM_A;
---	endif;
-  
---    endswitch;
 
   case OM_A:	--wait for GetMAck and FwdAck
     switch msg.mtype
@@ -1404,7 +1393,7 @@ ruleset n:Proc Do
 	rule "write request"
 	  if (p.state = P_Invalid)
           then
-            Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+            Send(GetM, HomeType, n, VC8, UNDEFINED, 0);
  	    p.state := IM_AD;  
  	  endif;
 	  if (p.state = P_Exclusive)
@@ -1413,13 +1402,13 @@ ruleset n:Proc Do
 	  endif;
  	  if (p.state = P_Shared)
  	  then
- 	    Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+ 	    Send(GetM, HomeType, n, VC8, UNDEFINED, 0);
  	    p.state := SM_AD;  
  	  endif;
 	  if (p.state = P_Owned)
 	  then
 	    p.state:= OM_A_WaitForGetMAck;
-	    Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
+	    Send(GetM, HomeType, n, VC8, UNDEFINED, 0);
 	  endif;
  	endrule;
 
