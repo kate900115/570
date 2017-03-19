@@ -53,7 +53,8 @@ type
                        Put_Ack,			-- respond from home node to indicate the value is successful writeback.  
                        Inv_Ack, 		    -- respond from other proc to indicate the block is invalidated.
                        Fwd_Ack,
-					   Put_Ack_S
+			Put_Ack_S,
+			GetM_Ack
                     };
 
   Message:
@@ -81,7 +82,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,			--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForPutAck			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A, OI_A_WaitForGetMAck			--transient states
                   };
       val: Value;
       InvAckNum: InvAckCnt;
@@ -434,6 +435,17 @@ Begin
 	    AddToSharersList(msg.src);
 	    HomeNode.state:=H_OO_A;
       case GetM:
+	if (msg.src=HomeNode.owner)
+	then
+	  Send(GetM_Ack, msg.src, HomeType, VC3, UNDEFINED, cnt);
+	  if (cnt =0)
+	  then
+	    HomeNode.state:=H_OM_A;
+	  else
+	    SendInvReqToSharers(msg.src);
+	    HomeNode.state:=H_OM_A;
+	  endif;
+	else
 	    if (IsSharer(msg.src))
 	    then
 	      RemoveFromSharersList(msg.src);
@@ -444,6 +456,7 @@ Begin
 	    SendInvReqToSharers(msg.src);
 	    HomeNode.owner:=msg.src;
 	    HomeNode.state:=H_OM_A;
+	endif;
       case PutS:
 	    Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	    RemoveFromSharersList(msg.src);
@@ -696,13 +709,15 @@ Begin
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
 	fan:=fan+1;
-        ps := P_Owned;
+        ps := OO_A;
         
       case Fwd_GetM:
       	Send(Data, msg.src, p, VC4, pv, msg.sharenum);
         Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
       	ps := P_Invalid;
       	undefine pv;
+
+      case Fwd_Ack:--------------------------------
 		  
 	  else
         ErrorUnhandledMsg(msg, p);
@@ -713,7 +728,8 @@ Begin
       case Fwd_GetS:
         Send(FwdData, msg.src, p, VC4, pv, 0);
 	fan:= fan+1;
-        ps := P_Owned;
+        --ps := P_Owned;
+	ps:=OO_A;
         
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, msg.sharenum);
@@ -728,10 +744,12 @@ Begin
   case P_Owned:
     switch msg.mtype
       case Fwd_GetS:
-	if (fan<ProcCount)
+	--if (fan<ProcCount)
+	if (fan=0)
 	then
 	  Send(FwdData, msg.src, p, VC4, pv, 0);
 	  fan:=fan+1;
+	  ps:=OO_A;
 	else
 	  msg_processed := false;
 	endif;
@@ -892,22 +910,103 @@ Begin
         
     endswitch;
 
-  case OM_A_WaitForPutAck:
+  case OO_A:
+    switch msg.mtype  
+      case Fwd_Ack:
+	if (fan>1)
+	then
+          fan:= fan-1;
+	else
+	  fan:=0;
+	  ps:=P_Owned;
+	endif;
+        
+      case Fwd_GetS:
+        msg_processed := false;
+        
+      case Fwd_GetM:
+        msg_processed := false;
+      
+      case Inv_Ack:
+        pan := pan - 1; 
+        
+        
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;
+
+  case OM_A_WaitForGetMAck:
     switch msg.mtype
       case Fwd_GetS:
 	Send(FwdData, msg.src, p, VC4, pv, 0);
 	fan:=fan+1;
+	--msg_processed := false;
       case Fwd_GetM:
+	--if (msg.sharenum=0)
+	--then
+	--  Send(FwdData, msg.src, p, VC4, pv, 0);
+	--else
+	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+	  ps := OI_A_WaitForGetMAck;
+	--endif;
+      case GetM_Ack:
 	if (msg.sharenum=0)
 	then
-	  Send(FwdData, msg.src, p, VC4, pv, 0);
+	  ps :=P_Modified;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED,0);
 	else
-	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
-	  ps := OM_A;
-	endif;	
+	  pan := msg.sharenum; 
+	endif;
+      case Inv_Ack:
+	if (pan=0)
+	then
+	  msg_processed := false;
+	endif;
+	if (pan=1)
+	then
+	  pan :=0;
+	  ps := P_Modified;
+	  Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED,0);
+	endif;
+	if (pan>1)
+	then
+	  pan:=pan-1;
+	endif;
+	
     endswitch;
 
-  case OM_A:
+  case OI_A_WaitForGetMAck:
+    switch msg.mtype
+      case GetM_Ack:
+	if (msg.sharenum=0)
+	then
+	  ps :=P_Invalid;
+	  undefine pv;
+	else
+	  pan := msg.sharenum; 
+	endif;
+	
+    endswitch;
+
+
+--  case OM_A_WaitForInvAck:
+--    switch msg.mtype
+--      case Fwd_GetS:
+--	Send(FwdData, msg.src, p, VC4, pv, 0);
+--	fan:=fan+1;
+--     case Fwd_GetM:
+--	if (msg.sharenum=0)
+--	then
+--	  Send(FwdData, msg.src, p, VC4, pv, 0);
+--	else
+--	  Send(FwdData, msg.src, p, VC4, pv, msg.sharenum);
+--	  ps := OM_A;
+--	endif;
+  
+--    endswitch;
+
+  case OM_A:	--wait for GetMAck and FwdAck
     switch msg.mtype
       case Fwd_GetS:
 	Send(FwdData, msg.src, p, VC4, pv, 0);
@@ -1030,6 +1129,8 @@ Begin
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
+
+      case Fwd_Ack:
 
       else
         ErrorUnhandledMsg(msg, p);
@@ -1317,7 +1418,7 @@ ruleset n:Proc Do
  	  endif;
 	  if (p.state = P_Owned)
 	  then
-	    p.state:= OM_A_WaitForPutAck;
+	    p.state:= OM_A_WaitForGetMAck;
 	    Send(GetM, HomeType, n, VC0, UNDEFINED, 0);
 	  endif;
  	endrule;
