@@ -15,8 +15,9 @@ const
   VC6: 6;
   VC7: 7;
   VC8: 8;
+  VC9: 9;
   QMax: 2;
-  NumVCs: VC8 - VC0 + 1;
+  NumVCs: VC9 - VC0 + 1;
   NetMax: 2*ProcCount+1;
   
 
@@ -56,7 +57,9 @@ type
                        Fwd_Ack,
 			Put_Ack_S,
 			GetM_Ack,
-	 		OwnedData
+	 		OwnedData,
+			SelfDowngradeData,
+			SelfDowngrade_Ack
                     };
 
   Message:
@@ -84,7 +87,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,			--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A,IM_AD_WaitForGetMAck, OI_A_WaitForGetMAck			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A,IM_AD_WaitForGetMAck, OI_A_WaitForGetMAck, OS_A, MS_A			--transient states
                   };
       val: Value;
       InvAckNum: InvAckCnt;
@@ -383,6 +386,13 @@ Begin
               Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
             endif;
 
+	  case SelfDowngradeData:
+      	    HomeNode.val := msg.val;
+      	    HomeNode.state := H_Shared;
+	    undefine HomeNode.owner;
+	    AddToSharersList(msg.src);
+            Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+
           case Fwd_Ack:
         	--doing nothing at all
 
@@ -429,6 +439,14 @@ Begin
       endif;
 
     case Fwd_Ack:
+
+    case SelfDowngradeData:
+      HomeNode.val := msg.val;
+      HomeNode.state := H_Shared;
+      AddToSharersList(msg.src);
+      undefine HomeNode.owner;
+      Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+
 	  
     else
       ErrorUnhandledMsg(msg, HomeType);
@@ -973,6 +991,31 @@ Begin
         
     endswitch;
 
+  case MS_A:
+    switch msg.mtype  
+      case SelfDowngrade_Ack:
+        ps:=P_Shared;
+      case Fwd_GetS:
+       if (fan<ProcCount)
+	then
+          Send(FwdData, msg.src, p, VC4, pv, 0);
+	  fan:=fan+1;
+          ps := OS_A;
+	else
+	  msg_processed:=false;
+	endif; 
+	
+      case Fwd_GetM:
+        Send(Data, msg.src, p, VC4, pv, 0);
+	undefine pv;
+        ps := P_Invalid;
+
+      case Invalidation:
+	msg_processed:=false;
+      else
+        ErrorUnhandledMsg(msg, p);
+    endswitch;
+
   case OO_A:
     switch msg.mtype  
       case Fwd_Ack:
@@ -1457,6 +1500,21 @@ ruleset n:Proc Do
  	    endif;
           endrule;
 	endruleset;
+
+
+	rule "self downgrade"
+	  if (p.state = P_Modified)
+	  then
+	    p.state := MS_A;
+	    Send(SelfDowngradeData, HomeType, n, VC9, p.val, 0)
+	  endif;
+	 -- if (p.state = P_Owned)
+	  --then
+	  --  p.state:= OS_A;
+	  --  Send(SelfDowngradeData, HomeType, n, VC9, p.val, 0)
+	  --endif;
+ 	endrule;
+
 	
 	rule "write request"
 	  if (p.state = P_Invalid)
