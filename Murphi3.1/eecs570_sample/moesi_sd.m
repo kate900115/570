@@ -554,11 +554,10 @@ Begin
 	endif;
 
       case SelfDowngradeData:
-	Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	HomeNode.val := msg.val;
-	undefine HomeNode.owner;
-	SendInvReqToSharers(msg.src);
 	AddToSharersList(msg.src);
+	undefine HomeNode.owner;
 	HomeNode.state := H_Shared;
 
 
