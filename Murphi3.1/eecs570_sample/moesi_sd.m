@@ -251,6 +251,8 @@ Begin
     case Fwd_Ack:
       --doing nothing at all
     case Inv_Ack:
+
+    case SelfDowngradeData:
       
     else
       ErrorUnhandledMsg(msg, HomeType);
@@ -339,6 +341,8 @@ Begin
     case Fwd_Ack:
       --doing nothing at all
 
+    case SelfDowngradeData:
+
     else
       ErrorUnhandledMsg(msg, HomeType);
 
@@ -387,11 +391,16 @@ Begin
             endif;
 
 	  case SelfDowngradeData:
-      	    HomeNode.val := msg.val;
-      	    HomeNode.state := H_Shared;
-	    undefine HomeNode.owner;
-	    AddToSharersList(msg.src);
-            Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+	    if (msg.src=HomeNode.owner)
+	    then
+      	      HomeNode.val := msg.val;
+      	      HomeNode.state := H_Shared;
+	      undefine HomeNode.owner;
+	      AddToSharersList(msg.src);
+              Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+	    else
+	      Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+	    endif;
 
           case Fwd_Ack:
         	--doing nothing at all
@@ -441,11 +450,16 @@ Begin
     case Fwd_Ack:
 
     case SelfDowngradeData:
-      HomeNode.val := msg.val;
-      HomeNode.state := H_Shared;
-      AddToSharersList(msg.src);
-      undefine HomeNode.owner;
-      Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+      if (HomeNode.owner=msg.src)
+      then
+        HomeNode.val := msg.val;
+        HomeNode.state := H_Shared;
+        AddToSharersList(msg.src);
+        undefine HomeNode.owner;
+        Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+      else
+	Send(SelfDowngrade_Ack, msg.src, HomeType, VC9, UNDEFINED, 0);
+      endif;
 
 	  
     else
@@ -750,6 +764,7 @@ Begin
 	Send(NullData, msg.src, p, VC4, pv, 0);
       case Inv_Ack:
       case Fwd_Ack:
+      case SelfDowngrade_Ack:
         
       else
          ErrorUnhandledMsg(msg, p);
@@ -895,6 +910,8 @@ Begin
 
 	  case Fwd_Ack:
 
+	  case SelfDowngrade_Ack:
+
   	  else
         ErrorUnhandledMsg(msg, p);
         
@@ -972,6 +989,8 @@ Begin
 	msg_processed := false;
 
       case Fwd_Ack:
+
+      case SelfDowngrade_Ack:
      
       else
         ErrorUnhandledMsg(msg, p);
@@ -1015,6 +1034,7 @@ Begin
 	
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
+	Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
 	undefine pv;
         ps := P_Invalid;
 
