@@ -552,7 +552,16 @@ Begin
 	    undefine HomeNode.owner;
 	  endif;
 	endif;
-	
+
+      case SelfDowngradeData:
+	Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, cnt);
+	HomeNode.val := msg.val;
+	undefine HomeNode.owner;
+	SendInvReqToSharers(msg.src);
+	AddToSharersList(msg.src);
+	HomeNode.state := H_Shared;
+
+
       else
         ErrorUnhandledMsg(msg, HomeType);
 
