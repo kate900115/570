@@ -87,7 +87,7 @@ type
   ProcState:
     Record
       state: enum { P_Invalid, P_Shared, P_Modified, P_Exclusive, P_Owned,			--stable states
-                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A,IM_AD_WaitForGetMAck, OI_A_WaitForGetMAck, OS_A, MS_A			--transient states
+                  IS_D, IM_AD, IM_A, SM_AD, SM_A, MI_A,EI_A, SI_A, OI_A_WaitForFwdAck, II_A, OI_A_WaitForPutAck, OI_A, OM_A, OM_A_WaitForGetMAck, OM_A_WaitForInvAck, OO_A,IM_AD_WaitForGetMAck, OI_A_WaitForGetMAck, OS_A, MS_A, MI_A_WaitForSDA			--transient states
                   };
       val: Value;
       InvAckNum: InvAckCnt;
@@ -568,11 +568,16 @@ Begin
 	endif;
 
       case SelfDowngradeData:
-	Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
-	HomeNode.val := msg.val;
-	AddToSharersList(msg.src);
-	undefine HomeNode.owner;
-	HomeNode.state := H_Shared;
+	if (msg.src=HomeNode.owner)
+	then
+	  Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	  HomeNode.val := msg.val;
+ 	  AddToSharersList(msg.src);
+	  undefine HomeNode.owner;
+	  HomeNode.state := H_Shared;
+	else
+	  Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+	endif;
 
 
       else
@@ -777,6 +782,8 @@ Begin
 		 undefine pv;
 		 Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
 		 Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
+	  case SelfDowngrade_Ack:
+	    
 
       else
          ErrorUnhandledMsg(msg, p);
@@ -795,7 +802,8 @@ Begin
       	ps := P_Invalid;
       	undefine pv;
 
-      case Fwd_Ack:--------------------------------
+      case Fwd_Ack:
+      case SelfDowngrade_Ack:---------------------
 		  
 	  else
         ErrorUnhandledMsg(msg, p);
@@ -1035,14 +1043,20 @@ Begin
       case Fwd_GetM:
         Send(Data, msg.src, p, VC4, pv, 0);
 	Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
-	undefine pv;
-        ps := P_Invalid;
-
+	--undefine pv;
+        ps := MI_A_WaitForSDA;
       case Invalidation:
 	msg_processed:=false;
       else
         ErrorUnhandledMsg(msg, p);
     endswitch;
+
+    case MI_A_WaitForSDA:
+      switch msg.mtype  
+        case SelfDowngrade_Ack:
+	  undefine pv;
+	  ps:=P_Invalid;
+      endswitch;
 
   case OO_A:
     switch msg.mtype  
@@ -1063,6 +1077,35 @@ Begin
       
       case Inv_Ack:
         pan := pan - 1; 
+        
+        
+      else
+        ErrorUnhandledMsg(msg, p);
+        
+    endswitch;
+
+  case OS_A:
+    switch msg.mtype  
+      case Fwd_GetS:
+	Send(FwdData, msg.src, p, VC4, pv, 0);
+	fan:=fan+1;
+
+      case Fwd_GetM:
+        msg_processed := false;
+
+      case Fwd_Ack:
+	fan := fan-1;
+
+      case SelfDowngrade_Ack:
+	if (fan=0)
+	then
+	  ps:= P_Shared;
+	else
+	  msg_processed := false;
+	endif;
+
+      case Invalidation:
+	msg_processed := false;
         
         
       else
