@@ -339,6 +339,9 @@ Begin
         endif;
 	  endif;
 
+    case PutO:
+	Send(Put_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
+
     case Fwd_Ack:
       --doing nothing at all
 
@@ -1072,8 +1075,16 @@ Begin
     case MI_A_WaitForSDA:
       switch msg.mtype  
         case SelfDowngrade_Ack:
-	  undefine pv;
-	  ps:=P_Invalid;
+	  if (fan=0)
+	  then
+	    undefine pv;
+	    ps:=P_Invalid;
+	  else
+	    msg_processed:=false;
+	  endif;
+
+        case Fwd_Ack:
+	  fan:=fan-1;
       endswitch;
 
   case OO_A:
@@ -1230,10 +1241,18 @@ Begin
             pv := msg.val;
             Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
           endif;
-
-          if !(msg.src = HomeType)
+       
+	else
+	  if (msg.sharenum = 0)
           then
             ps := P_Modified;
+            pv := msg.val;
+          endif;
+          
+          if (msg.sharenum > 0)
+          then
+            ps := SM_A;
+            pan:= msg.sharenum; --- 1;
             pv := msg.val;
           endif;
         endif;
