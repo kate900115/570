@@ -60,6 +60,7 @@ type
 	 		OwnedData,
 			SelfDowngradeData,
 			SelfDowngrade_Ack
+
                     };
 
   Message:
@@ -78,7 +79,7 @@ type
   HomeState:
     Record
       state: enum { H_Invalid, H_Modified, H_Shared, H_Exclusive, H_Owned,	--stable states
-      		    H_SM_A, H_MS_D, H_EM_A, H_MM_A, H_OI_A, H_OM_A, H_MO_A, H_OO_A }; 		--transient states during recall
+      		    H_SM_A, H_MS_D, H_EM_A, H_MM_A, H_OI_A, H_OM_A, H_MO_A, H_OO_A, H_MS_A }; 		--transient states during recall
       owner: Node;	
       sharers: multiset [ProcCount] of Node;    						
       val: Value; 
@@ -625,6 +626,13 @@ Begin
         msg_processed := false;
       endswitch;
 
+  case H_MS_A:
+    switch msg.mtype
+      case Fwd_Ack:
+        HomeNode.state := H_Shared;
+      else
+        msg_processed := false;
+      endswitch;
 
 
   case H_MS_D:
@@ -701,6 +709,15 @@ Begin
 
   case H_MO_A:
 	switch msg.mtype
+	--case GetS:
+	--  Send(Fwd_GetS, HomeNode.owner, msg.src, VC3, UNDEFINED, 0);--------------------
+	  
+	--case SelfDowngradeData:
+	 -- HomeNode.state:=H_MS_A;
+	  --HomeNode.val:=msg.val;
+	  --AddToSharersList(msg.src);
+	  --undefine HomeNode.owner;
+	  --Send(SelfDowngrade_Ack, msg.src, HomeType, VC1, UNDEFINED, 0);
 	case Fwd_Ack:
 	  HomeNode.state:=H_Owned;
 	else 
@@ -782,7 +799,8 @@ Begin
 		 undefine pv;
 		 Send(Inv_Ack, msg.src, p, VC5, UNDEFINED, 0);
 		 Send(Inv_Ack, HomeType, p, VC5, UNDEFINED, 0);
-	  case SelfDowngrade_Ack:
+	  case Fwd_GetS:
+		Send(OwnedData, msg.src, p, VC4, pv, 0);
 	    
 
       else
@@ -1091,7 +1109,10 @@ Begin
 	fan:=fan+1;
 
       case Fwd_GetM:
-        msg_processed := false;
+        Send(Data, msg.src, p, VC4, pv, msg.sharenum);
+	Send(Fwd_Ack, HomeType, p, VC7, UNDEFINED, 0);
+	--undefine pv;
+        ps := MI_A_WaitForSDA;
 
       case Fwd_Ack:
 	fan := fan-1;
@@ -1350,7 +1371,8 @@ Begin
       case Put_Ack:
         ps := P_Invalid;
         undefine pv;
-      
+      case Fwd_GetS:
+	Send(OwnedData, msg.src, p, VC4, pv, 0);
       else
         ErrorUnhandledMsg(msg, p);
         
